@@ -1,0 +1,30 @@
+{
+  "name": "test-battery",
+  "version": "0.1.1",
+  "description": "Test engine for JavaScript",
+  "main": "TestBattery.js",
+  "type": "module",
+  "scripts": {
+    "test": "node_modules/mocha/bin/mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/capnajax/test-battery.git"
+  },
+  "keywords": [
+    "test"
+  ],
+  "author": "Thomas D Wilkinson",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/capnajax/test-battery/issues"
+  },
+  "homepage": "https://github.com/capnajax/test-battery#readme",
+  "dependencies": {
+    "format": "^0.2.2"
+  },
+  "devDependencies": {
+    "expect.js": "^0.3.1",
+    "mocha": "^9.1.3"
+  }
+}
