@@ -1,12 +1,14 @@
 'use strict';
 
 import format from 'format';
+import fs from 'fs';
+import path from 'path';
 import { types } from 'util';
-import { isPromise } from 'util/types';
 
 class TestBattery {
 
-  constructor() {
+  constructor(name) {
+    this.name = name
     this.errors = [];
     this.promises = [];
     this.testsCompleted = 0;
@@ -37,18 +39,20 @@ class TestBattery {
    * @param {*} done 
    */
   done(done) {
-    Promise.allSettled(this.promises)
-    .then(() => {
-      if (this.errors.length || this.testsRefused.length) {
-        let result = {
-          errors: this.errors
-        };
-        this.refuseTests && (result.testsRefused = this.testsRefused);
-        done(result);
-      } else {
-        done();
-      }
-    });
+    return Promise.allSettled(this.promises)
+      .then(() => {
+        if (this.errors.length || this.testsRefused.length) {
+          let result = {
+            errors: this.errors
+          };
+          this.refuseTests && (result.testsRefused = this.testsRefused);
+          done && done(result);
+          return result;
+        } else {
+          done && done();
+          return
+        }
+      });
   }
 
   /**
@@ -66,6 +70,20 @@ class TestBattery {
     const errorString = () => {
       return format.apply(null, [error].concat(params || []));
     }
+    const testCoreResult = (coreResult) => {
+      if (types.isPromise(coreResult)) {
+        this.promises.push(coreResult);
+        coreResult.then(r => {
+          testCoreResult(r);
+        });
+      } else {
+        if (!coreResult) {
+          this.errors.push(errorString());
+        }
+        this.testsCompleted++;
+
+      }
+    }
     if (this.refuseTests) {
       this.testsRefused.push(errorString());
       return;
@@ -76,10 +94,8 @@ class TestBattery {
         this.doTest(core, r, error, params);
       });
     } else {
-      if (!core(result)) {
-        this.errors.push(errorString());
-      }
-      this.testsCompleted++;
+      let coreResult = core(result);
+      testCoreResult(coreResult);
     }
   }
 
@@ -134,6 +150,35 @@ class TestBattery {
   }
 
   /**
+   * @method isDirectory
+   * Tests if `result` is the path of a directory. Accepts a `string` or an
+   * array of `string`s; it it's an array, it'll join the array before testing
+   * it. All other types will always fail the test.
+   * @param {*} result the result to test. If `result` is a promise, it'll test
+   *  the value that the promise resolves with.
+   * @param {string} error an error message. Can include parameterizations to be
+   *  filled in with `format`.
+   * @param  {...any} [params] parameters for the error message
+   */
+   isDirectory(result, error, ...params) {
+    this.doTest(function(result) {
+      if (Array.isArray(result)) {
+        result = path.join.apply(null, result);
+      }
+      if (typeof(result) !== 'string') {
+        return false;
+      }
+      return fs.promises.stat(result)
+        .then(stat => {
+          return stat.isDirectory(result);
+        }) 
+        .catch(() => {
+          return false;
+        });
+    }, result, error, params);
+  }
+
+  /**
    * @method isEmptyArray
    * Tests if `result` is an empty array.
    * @param {*} result the result to test. If `result` is a promise, it'll test
@@ -163,6 +208,24 @@ class TestBattery {
       return ( typeof(result) === 'string'  || types.isStringObject(result) )
         && result.length === 0;
     }, result, error, params);
+  }
+
+  /**
+   * @method isEqual
+   * Tests if two values are equal. This uses the `==` operator. For strict
+   * equality (`===`), use `isStrictlyEqual`.
+   * @param {*} a the first value to test. If `result` is a promise, it'll test
+   *  the value that the promise resolves with.
+   * @param {*} a the second value to test. If `result` is a promise, it'll test
+   *  the value that the promise resolves with.
+   * @param {string} error an error message. Can include parameterizations to be
+   *  filled in with `format`.
+   * @param  {...any} [params] parameters for the error message
+   */
+  isEqual(a, b, error, ...params) {
+    this.doTest(function(result) {
+      return result[0] == result[1];
+    }, Promise.all([a, b]), error, params);
   }
 
   /**
@@ -200,6 +263,35 @@ class TestBattery {
   }
 
   /**
+   * @method isFile
+   * Tests if `result` is the path of a regular file. Accepts a `string` or an
+   * array of `string`s; it it's an array, it'll join the array before testing
+   * it. All other types will always fail the test.
+   * @param {*} result the result to test. If `result` is a promise, it'll test
+   *  the value that the promise resolves with.
+   * @param {string} error an error message. Can include parameterizations to be
+   *  filled in with `format`.
+   * @param  {...any} [params] parameters for the error message
+   */
+  isFile(result, error, ...params) {
+    this.doTest(function(result) {
+      if (Array.isArray(result)) {
+        result = path.join.apply(null, result);
+      }
+      if (typeof(result) !== 'string') {
+        return false;
+      }
+      return fs.promises.stat(result)
+        .then(stat => {
+          return stat.isFile();
+        }) 
+        .catch(() => {
+          return false;
+        });
+    }, result, error, params);
+  }
+
+  /**
    * @method isNil
    * Tests if `result` is `null` or `undefined`.
    * @param {*} result the result to test. If `result` is a promise, it'll test
@@ -228,6 +320,25 @@ class TestBattery {
       return result === null;
     }, result, error, params);
   }
+
+  /**
+   * @method isStrictlyEqual
+   * Tests if two values are equal. This uses the `===` operator. For non-strict
+   * equality (`===`), use `isEqual`.
+   * @param {*} a the first value to test. If `result` is a promise, it'll test
+   *  the value that the promise resolves with.
+   * @param {*} a the second value to test. If `result` is a promise, it'll test
+   *  the value that the promise resolves with.
+   * @param {string} error an error message. Can include parameterizations to be
+   *  filled in with `format`.
+   * @param  {...any} [params] parameters for the error message
+   */
+   isStrictlyEqual(a, b, error, ...params) {
+    this.doTest(function(result) {
+      return result[0] === result[1];
+    }, Promise.all([a, b]), error, params);
+  }
+
   /**
    * @method isString
    * Tests if `result` is a string. Accepts both primitive strings and String
@@ -238,12 +349,13 @@ class TestBattery {
    *  filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
-   isString(result, error, ...params) {
+  isString(result, error, ...params) {
     this.doTest(function(result) {
       return typeof(result) === 'string' || types.isStringObject(result);
     }, result, error, params);
   }
-   /**
+
+  /**
    * @method isTrue
    * Tests if `result` is equal to true. Accepts both boolean primitives and
    * Boolean objects. Note this must equal `true` or `new Boolean(true)`, not
@@ -254,12 +366,13 @@ class TestBattery {
    *  filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
-    isTrue(result, error, ...params) {
+  isTrue(result, error, ...params) {
     this.doTest(function(result) {
       return (result === true ||
         ( result && result.valueOf && result.valueOf(result) === true) );
     }, result, error, params);
   }
+
   /**
    * @method isTruthy
    * Tests if `result` is truthy, that is, any value that would be `true` if you
@@ -270,11 +383,12 @@ class TestBattery {
    *  filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
-   isTruthy(result, error, ...params) {
+  isTruthy(result, error, ...params) {
     this.doTest(function(result) {
       return (!!result);
     }, result, error, params);
   }
+
   /**
    * @method isUndefined
    * Tests if `result` is an `undefined`.
@@ -284,7 +398,7 @@ class TestBattery {
    *  filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
-   isUndefined(result, error, ...params) {
+  isUndefined(result, error, ...params) {
     this.doTest(function(result) {
       return result === undefined;
     }, result, error, params);

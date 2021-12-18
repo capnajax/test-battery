@@ -1,10 +1,13 @@
 # test-battery
-Test engine for JavaScript
+Test engine for JavaScript that plays nicely with promises, intended for use with mochajs but plays nicely with any test framework. This is intended to replace `expect.js`, etc with a new concept.
 
-This is very alpha right now, as I expect to add a lot of tests to this in the
-near future.
+Key features:
 
-This test engine is intended to capture multiple error messages, and only stop when requested, or the battery is complete.
+- Plays nicely with promises. If a value is a promise, it'll can await the resolution of the promise transparently.
+- Can await multiple promises at once, while still respecting a dependency chain. If one test depends on the results of previous tests, it can be forced to await the resolution of previous tests before continuing.
+- Does not throw exceptions on the first error. Instead, it captures as many errors as it can in a single run.
+
+This is very must a start right now, as I expect to add a lot of tests to this in the near future.
 
 ## Installation
 
@@ -44,4 +47,33 @@ import TestBattery from test-battery
   }
 ```
 
+Using with `mocha`:
 
+```javascript
+describe('File tests', function() {
+
+  it('Files exist', function(done) {
+    const filenames = [
+      'foo/bar.yaml',
+      'foo/bar.js',
+      'foo/bar.csv',
+      'foo/bar.txt'
+    ];
+
+    let test = new TestBattery();
+
+    // test each of the files
+    for (let filename of filenames) {
+      // the error message is parameterized
+      test.isFile([process.cwd(), '..', filename],
+        'Expects "%s" to be a file', filename);
+    }
+
+    // note we pass mocha's `done` to `tests.done` to report all errors in
+    // this test.
+    test.done(done);
+  });
+
+});
+
+```

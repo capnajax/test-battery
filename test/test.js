@@ -1,6 +1,7 @@
 'use strict';
 
 import expect from 'expect.js';
+import path from 'path';
 import TestBattery from '../TestBattery.js';
 
 const getResults = function(test, fails, expectedFails, done) {
@@ -89,6 +90,19 @@ describe('Test Types', function() {
     getResults(test, fails, done);
   });
 
+  it('directory', function (done) {
+    let test = new TestBattery();
+    test.isDirectory(path.join(process.cwd()), 'path string');
+    test.isDirectory([process.cwd(), '.'], 'path array');
+
+    let fails = new TestBattery();
+    fails.isDirectory([process.cwd(), 'TestBattery.jsxx'], 'regular file');
+    fails.isDirectory([process.cwd(), 'hello'], 'non-existant directory');
+    fails.isDirectory(12, 'not a string');
+    
+    getResults(test, fails, done);
+  });
+
   it('empty array', function (done) {
     let test = new TestBattery();
     test.isEmptyArray([], 'empty array literal');
@@ -115,6 +129,24 @@ describe('Test Types', function() {
     fails.isEmptyString({}, 'empty object');
     fails.isEmptyString(null, 'null');
     fails.isEmptyString([], 'empty array');
+    
+    getResults(test, fails, done);
+  });
+
+  it('equal', function (done) {
+    let test = new TestBattery();
+    test.isEqual(1, 1, 'equal integers');
+    test.isEqual(1, '1', 'equal ones');
+    test.isEqual('1', '1', 'equal strings');
+    test.isEqual(true, true, 'equal booleans');
+    test.isEqual(true, 1, 'equal truths');
+
+    let fails = new TestBattery();
+    fails.isEqual(1, 2, 'unequal integers');
+    fails.isEqual(1, '2', 'unequal ones');
+    fails.isEqual('1', '2', 'unequal strings');
+    fails.isEqual(true, false, 'unequal booleans');
+    fails.isEqual(true, '2', 'unequal truths');
     
     getResults(test, fails, done);
   });
@@ -152,6 +184,19 @@ describe('Test Types', function() {
     getResults(test, fails, done);
   });
 
+  it('file', function (done) {
+    let test = new TestBattery();
+    test.isFile(path.join(process.cwd(), 'TestBattery.js'), 'path string');
+    test.isFile([process.cwd(), 'TestBattery.js'], 'path array');
+
+    let fails = new TestBattery();
+    fails.isFile([process.cwd(), 'TestBattery.jsxx'], 'non-existant file');
+    fails.isFile(process.cwd(), 'directory');
+    fails.isFile(12, 'not a string');
+    
+    getResults(test, fails, done);
+  });
+
   it('nil', function (done) {
     let test = new TestBattery();
     test.isNil(null, 'null');
@@ -172,6 +217,24 @@ describe('Test Types', function() {
     fails.isNull(undefined, 'undefined');
     fails.isNull('', 'empty string literal');
     fails.isNull(0, 'zero');
+    
+    getResults(test, fails, done);
+  });
+
+  it('strictly equal', function (done) {
+    let test = new TestBattery();
+    test.isStrictlyEqual(1, 1, 'equal integers');
+    test.isStrictlyEqual('1', '1', 'equal strings');
+    test.isStrictlyEqual(true, true, 'equal booleans');
+
+    let fails = new TestBattery();
+    fails.isStrictlyEqual(1, 2, 'unequal integers');
+    fails.isStrictlyEqual(1, '1', 'equal (not strictly) ones');
+    fails.isStrictlyEqual(1, '2', 'unequal ones');
+    fails.isStrictlyEqual('1', '2', 'unequal strings');
+    fails.isStrictlyEqual(true, false, 'unequal booleans');
+    fails.isStrictlyEqual(true, '2', 'unequal truths');
+    fails.isStrictlyEqual(true, 1, 'equal (not strictly) truths');
     
     getResults(test, fails, done);
   });
@@ -269,7 +332,7 @@ describe('Promise handling', function() {
     return;
   });
 
-  it ('batteries with promises', async function() {
+  it ('batteries with stops and promises', async function() {
     let test = new TestBattery();
     let makeTest = function(n, succeed = true) {
       return new Promise(r => {
