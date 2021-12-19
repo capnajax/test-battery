@@ -138,6 +138,10 @@ describe('Test Types', function() {
     test.isEqual(1, 1, 'equal integers');
     test.isEqual(1, '1', 'equal ones');
     test.isEqual('1', '1', 'equal strings');
+    test.isEqual(
+      'it was the worst of times it was the best of times',
+      'it was the worst of times it was the best of times',
+      'equal longer strings');
     test.isEqual(true, true, 'equal booleans');
     test.isEqual(true, 1, 'equal truths');
 
@@ -145,6 +149,10 @@ describe('Test Types', function() {
     fails.isEqual(1, 2, 'unequal integers');
     fails.isEqual(1, '2', 'unequal ones');
     fails.isEqual('1', '2', 'unequal strings');
+    fails.isEqual(
+      'it was the worst of times it was the best of times',
+      'Tt was the worst of times, it was the best of times',
+      'unequal longer strings');
     fails.isEqual(true, false, 'unequal booleans');
     fails.isEqual(true, '2', 'unequal truths');
     
