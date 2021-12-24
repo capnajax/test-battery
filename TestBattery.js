@@ -14,6 +14,13 @@ const operators = (() => {
   let ops = {
     // operators can just be a function, or an object with `fn` and `minArgs` or
     // `numArgs`
+    array: Array.isArray,
+    boolean: a => {
+      return !!( 
+        typeof(a) === 'boolean' || 
+        types.isBooleanObject(a)
+      );
+    },
     equal: { 
       fn: (a, ...b) => {
         let result = true;
@@ -30,6 +37,7 @@ const operators = (() => {
   };
   for (let k of Object.keys(ops)) {
     let o = ops[k];
+    console.log({o})
     if (typeof o === 'function') {
       o = { fn: o, numArgs: o.length };
       ops[k] = o;
@@ -63,7 +71,7 @@ class Test {
               let tvl = this.values.length;
               this.operator = op;
               if (has(op, 'numArgs')) {
-                if (this.resolvedValues.length === op.numArgs) {
+                if (tvl === op.numArgs) {
                   return this.#complete();
                 } else if (tvl < op.numArgs) {
                   this.expectedOperands = op.numArgs - tvl;
@@ -110,6 +118,11 @@ class Test {
     if (this.isComplete) {
       throw new Error('test already complete');
     }
+  }
+
+  get is() {
+    this.#testIfComplete();
+    return this;
   }
 
   member(path, defaultValue) {

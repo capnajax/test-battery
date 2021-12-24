@@ -54,9 +54,7 @@ const getResults = function(test, fails, expectedFails, done) {
   })
 }
 
-// describe
-const c = () => {};
-c('Simple Form', function() {
+describe('Simple Form', function() {
 
   it('array', function (done) {
     let test = new TestBattery();
@@ -315,6 +313,43 @@ c('Simple Form', function() {
 
 describe('Contructed form', function() {
 
+  it('array', function (done) {
+    let test = new TestBattery();
+    test.test('empty array').value([]).is.array;
+    test.test('integer array').value([1,2,3]).is.array;
+    test.test('empty array object').value(new Array()).is.array;
+    test.test('string array').value(['this', 'string', 'array']).is.array;
+
+    let fails = new TestBattery();
+    fails.test('integer').value(1).is.array;
+    fails.test('string').value('string').is.array;
+    fails.test('null').value(null).is.array;
+
+    getResults(test, fails, done);
+  });
+
+  it('boolean', function (done) {
+    let test = new TestBattery();
+    test.test('true').value(true).is.boolean;
+    test.test('false').value(false).is.boolean;
+    test.test('object').value(new Boolean()).is.boolean;
+    test.test('object true').value(new Boolean(true)).is.boolean;
+    test.test('object false').value(new Boolean(false)).is.boolean;
+
+    let fails = new TestBattery();
+    fails.test('null').value(null).is.boolean;
+    fails.test('zero').value(0).is.boolean;
+    fails.test('undefined').value(undefined).is.boolean;
+    fails.test('empty string').value('').is.boolean;
+    fails.test('empty object').value({}).is.boolean;
+    fails.test('1').value(1).is.boolean;
+    fails.test('non-empty string').value('string').is.boolean;
+    fails.test('NaN').value(NaN).is.boolean;
+    
+    getResults(test, fails, done);
+  });
+
+
   it('equal', function(done) {
     let test = new TestBattery();
     test.test('equal integers').value(1).value(1).equal;
@@ -334,7 +369,7 @@ describe('Contructed form', function() {
 });
 
 // describe
-c('Promise handling', function() {
+describe('Promise handling', function() {
 
   it ('batteries without promises', function(done) {
     let test = new TestBattery();
