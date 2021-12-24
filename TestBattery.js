@@ -65,7 +65,7 @@ const operators = (() => {
     false: a => { return (a === false ||
       ( a && a.valueOf && a.valueOf(a) === false) )
     },
-    falsey: a => { return !a; },
+    falsey: a => !a,
     file: a => {
       let file = Array.isArray(a)
         ? path.join.apply(null, a)
@@ -80,7 +80,30 @@ const operators = (() => {
         .catch(() => {
           return false;
         });
-    }
+    },
+    nil: a => {
+      return ( a === null || a === undefined )
+    },
+    null: a => a === null,
+    strictlyEqual: {
+      fn: (a, ...b) => {
+        let result = true;
+        for (let i of b) {
+          if (a !== i) {
+            result = false;
+            break;
+          }
+        }
+        return result;
+      },
+      minArgs: 2
+    },
+    isString: a => (typeof a === 'string' || types.isStringObject(a)),
+    true: a => { return (a === true ||
+      ( a && a.valueOf && a.valueOf(a) === true) )
+    },
+    truthy: a => !!a,
+    undefined: a => a === undefined
   };
   for (let k of Object.keys(ops)) {
     let o = ops[k];

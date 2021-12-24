@@ -447,9 +447,96 @@ describe('Contructed form', function() {
     getResults(test, fails, done);
   });
 
+  it('nil', function (done) {
+    let test = new TestBattery();
+    test.test('null').value(null).is.nil;
+    test.test('undefined').value(undefined).is.nil;
+
+    let fails = new TestBattery();
+    fails.test('empty string literal').value('').is.nil;
+    fails.test('zero').value(0).is.nil;
+    
+    getResults(test, fails, done);
+  });
+
+  it('null', function (done) {
+    let test = new TestBattery();
+    test.test('null').value(null).is.null;
+
+    let fails = new TestBattery();
+    fails.test('undefined').value(undefined).is.null;
+    fails.test('empty string literal').value('').is.null;
+    fails.test('zero').value(0).is.null;
+    
+    getResults(test, fails, done);
+  });
+
+  it('strictly equal', function (done) {
+    let test = new TestBattery();
+    test.test('equal integers').value(1).value(1).is.strictlyEqual;
+    test.test('equal strings').value('1').value('1').is.strictlyEqual;
+    test.test('equal booleans').value(true).value(true).is.strictlyEqual;
+
+    let fails = new TestBattery();
+    fails.test('unequal integers').value(1).value(2).is.strictlyEqual;
+    fails.test('equal (not strictly) ones').value(1).value('1').is.strictlyEqual;
+    fails.test('unequal ones').value(1).value('2').is.strictlyEqual;
+    fails.test('unequal strings').value('1').value('2').is.strictlyEqual;
+    fails.test('unequal booleans').value(true).value(false).is.strictlyEqual;
+    fails.test('unequal truths').value(true).value('2').is.strictlyEqual;
+    fails.test('equal (not strictly) truths').value(true).value(1).is.strictlyEqual;
+    
+    getResults(test, fails, done);
+  });
+
+  it('true', function (done) {
+    let test = new TestBattery();
+    test.test('true literal').value(true).is.true;
+    test.test('true object').value(new Boolean(true)).is.true;
+
+    let fails = new TestBattery();
+    fails.test('string literal').value('true').is.true;
+    fails.test('false object').value(new Boolean(false)).is.true;
+    fails.test('empty object').value({}).is.true;
+    fails.test('null').value(null).is.true;
+    fails.test('empty array').value([]).is.true;
+    fails.test('zero').value(0).is.true;
+    
+    getResults(test, fails, done);
+  });
+
+  it('truthy', function (done) {
+    let test = new TestBattery();
+    test.test('true literal').value(true).is.truthy;
+    test.test('null').value(!null).is.truthy;
+    test.test('one').value(1).is.truthy;
+    test.test('empty object').value({}).is.truthy;
+    test.test('empty array').value([]).is.truthy;
+    test.test('false object').value(new Boolean(false)).is.truthy;
+    test.test('string literal').value('true').is.truthy;
+    test.test('true object').value(new Boolean(true)).is.truthy;
+
+    let fails = new TestBattery();
+    fails.test('empty string').value('').is.truthy;
+    fails.test('zero').value(0).is.truthy;
+    
+    getResults(test, fails, done);
+  });
+
+  it('undefined', function (done) {
+    let test = new TestBattery();
+    test.test('undefined').value(undefined).is.undefined;
+
+    let fails = new TestBattery();
+    fails.test('null').value(null).is.undefined;
+    fails.test('empty string literal').value('').is.undefined;
+    fails.test('zero').value(0).is.undefined;
+    
+    getResults(test, fails, done);
+  });
+
 });
 
-// describe
 describe('Promise handling', function() {
 
   it ('batteries without promises', function(done) {
