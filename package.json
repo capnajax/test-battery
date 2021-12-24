@@ -1,6 +1,6 @@
 {
   "name": "test-battery",
-  "version": "0.1.6",
+  "version": "0.1.8",
   "description": "Test engine for JavaScript",
   "main": "TestBattery.js",
   "type": "module",
@@ -12,7 +12,10 @@
     "url": "git+https://github.com/capnajax/test-battery.git"
   },
   "keywords": [
-    "test", "unit-testing", "expect", "mocha"
+    "test",
+    "unit-testing",
+    "expect",
+    "mocha"
   ],
   "author": "Thomas D Wilkinson",
   "license": "ISC",
@@ -21,7 +24,8 @@
   },
   "homepage": "https://github.com/capnajax/test-battery#readme",
   "dependencies": {
-    "format": "^0.2.2"
+    "format": "^0.2.2",
+    "lodash": "^4.17.21"
   },
   "devDependencies": {
     "expect.js": "^0.3.1",

@@ -30,6 +30,7 @@ const getResults = function(test, fails, expectedFails, done) {
     new Promise((r, j) => {
       if (fails) {
         fails.done(function(d) { 
+
           try {
             expect(d).to.not.be(undefined);
             expectedFails || (expectedFails = fails.testsCompleted);
@@ -48,11 +49,14 @@ const getResults = function(test, fails, expectedFails, done) {
     done();
   })
   .catch((reason) => {
+    console.error(reason);
     done({battery: this, reason});
   })
 }
 
-describe('Test Types', function() {
+// describe
+const c = () => {};
+c('Simple Form', function() {
 
   it('array', function (done) {
     let test = new TestBattery();
@@ -114,6 +118,21 @@ describe('Test Types', function() {
     fails.isEmptyArray({}, 'empty object');
     fails.isEmptyArray(null, 'null');
     fails.isEmptyArray('', 'empty string');
+    
+    getResults(test, fails, done);
+  });
+
+  it('empty object', function (done) {
+    let test = new TestBattery();
+    test.isEmptyObject({}, 'empty object literal');
+    test.isEmptyObject(new Object(), 'empty object object');
+
+    let fails = new TestBattery();
+    fails.isEmptyObject({data: {}}, 'object literal');
+    fails.isEmptyObject(new Object({data: {}}), 'object object');
+    fails.isEmptyObject([], 'empty array');
+    //fails.isEmptyObject(null, 'null');
+    fails.isEmptyObject('', 'empty string');
     
     getResults(test, fails, done);
   });
@@ -294,7 +313,28 @@ describe('Test Types', function() {
   });
 });
 
-describe('Promise handling', function() {
+describe('Contructed form', function() {
+
+  it('equal', function(done) {
+    let test = new TestBattery();
+    test.test('equal integers').value(1).value(1).equal;
+    test.test('equivalent value comparison').value('1').value(1).equal;
+    test.test('equal strings').value('1').value('1').equal;
+    test.test('not unequal').value('1').value('1').not.equal;
+
+    let fails = new TestBattery();
+    fails.test('not equal integers').value(1).value(2).not.equal;
+    fails.test('unequal integers').value(1).value(2).equal;
+    fails.test('unequivalent values').value('1').value(2).equal;
+    fails.test('unequal strings').value('1').value('2').equal;
+
+    getResults(test, fails, done);
+  });
+
+});
+
+// describe
+c('Promise handling', function() {
 
   it ('batteries without promises', function(done) {
     let test = new TestBattery();
