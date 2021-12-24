@@ -21,6 +21,34 @@ const operators = (() => {
         types.isBooleanObject(a)
       );
     },
+    directory: a => {
+      let dir = Array.isArray(a)
+        ? path.join.apply(null, a)
+        : a
+      if (typeof(dir) !== 'string') {
+        return false;
+      }
+      return fs.promises.stat(dir)
+        .then(stat => {
+          return stat.isDirectory(dir);
+        })
+        .catch(() => {
+          return false;
+        });
+    },
+    empty: a => {
+      let result = false;
+      if (Array.isArray(a)) {
+        result = (a.length === 0)
+      } else if (typeof a === 'string') {
+        result = (a === '');
+      } else if (typeof a === 'object' && a !== null) {
+        result = (Object.keys(a).length === 0)
+      }
+      // everything not an array, object, or string is false, including 
+      // `null` and `undefined` stays false
+      return result;
+    },
     equal: { 
       fn: (a, ...b) => {
         let result = true;
@@ -33,11 +61,29 @@ const operators = (() => {
         return result;
       },
       minArgs: 2
+    },
+    false: a => { return (a === false ||
+      ( a && a.valueOf && a.valueOf(a) === false) )
+    },
+    falsey: a => { return !a; },
+    file: a => {
+      let file = Array.isArray(a)
+        ? path.join.apply(null, a)
+        : a;
+      if (typeof file !== 'string') {
+        return false;
+      }
+      return fs.promises.stat(file)
+        .then(stat => {
+          return stat.isFile();
+        })
+        .catch(() => {
+          return false;
+        });
     }
   };
   for (let k of Object.keys(ops)) {
     let o = ops[k];
-    console.log({o})
     if (typeof o === 'function') {
       o = { fn: o, numArgs: o.length };
       ops[k] = o;
@@ -96,11 +142,10 @@ class Test {
 
   #complete() {
     this.isComplete = true;
-    return this.dummyTests
-      ? Promise.reject()
-      : Promise.all(this.values) 
-        .then(resolvedValues => {
-          let result = this.operator.fn.apply(this, resolvedValues);
+    return Promise.all(this.values)
+        .then(async resolvedValues => {
+          let result = await this.operator.fn.apply(
+            this, resolvedValues.map(v=>v.v));
           if (this.negative) {
             result = !!result;
           }
@@ -118,6 +163,16 @@ class Test {
     if (this.isComplete) {
       throw new Error('test already complete');
     }
+  }
+
+  get a() {
+    this.#testIfComplete();
+    return this;
+  }
+
+  get are() {
+    this.#testIfComplete();
+    return this;
   }
 
   get is() {
@@ -149,7 +204,11 @@ class Test {
 
   value(v) {
     this.#testIfComplete();
-    this.values.push(v);
+    if (types.isPromise(v)) {
+      this.values.push(Promise.then(v=>{v}));
+    } else {
+      this.values.push({v});
+    }
     if (!isNil(this.expectedOperands)) {
       this.expectedOperands--;
       if (this.expectedOperands === 0) {
@@ -161,8 +220,6 @@ class Test {
   v(v) {
     return this.value(v);
   }
-
-
 }
 
 class TestBattery {

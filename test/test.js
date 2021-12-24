@@ -346,10 +346,45 @@ describe('Contructed form', function() {
     fails.test('non-empty string').value('string').is.boolean;
     fails.test('NaN').value(NaN).is.boolean;
     
+    getResults(test, fails, done);'string'
+  });
+
+  it('directory', function (done) {
+    let test = new TestBattery();
+    test.test('path string').value(path.join(process.cwd())).is.a.directory;
+    test.test('path array').value([process.cwd(), 'test']).is.a.directory;
+
+    let fails = new TestBattery();
+    fails.test('non-existant file').value([process.cwd(), 'TestBattery.jsxx']).is.a.directory;
+    fails.test('not a directory').value(path.join(process.cwd(), 'TestBattery.js')).is.a.directory;
+    fails.test('not a string').value(12).is.a.directory;
+    
     getResults(test, fails, done);
   });
 
+  it('empty', function (done) {
+    let test = new TestBattery();
+    test.test('empty array literal').value([]).is.empty;
+    test.test('empty array object').value(new Array()).is.empty;
+    test.test('empty object literal').value({}).is.empty;
+    test.test('empty object object').value(new Object()).is.empty;
+    test.test('empty string literal').value('').is.empty;
+    test.test('empty string object').value(new String()).is.empty;
 
+    let fails = new TestBattery();
+    fails.test('array literal').value([1]).is.empty;
+    fails.test('array object').value(new Array(21)).is.empty;
+    fails.test('null').value(null).is.empty;
+    fails.test('object literal').value({data: {}}).is.empty;
+    fails.test('object object').value(new Object({data: {}})).is.empty;
+    fails.test('string literal').value('hi').is.empty;
+    fails.test('string object').value(new String('hi')).is.empty;
+    fails.test('undefined').value(undefined).is.empty;
+    fails.test('integer').value(1).is.empty;
+
+    getResults(test, fails, done);
+  });
+  
   it('equal', function(done) {
     let test = new TestBattery();
     test.test('equal integers').value(1).value(1).equal;
@@ -363,6 +398,52 @@ describe('Contructed form', function() {
     fails.test('unequivalent values').value('1').value(2).equal;
     fails.test('unequal strings').value('1').value('2').equal;
 
+    getResults(test, fails, done);
+  });
+
+  it('false', function (done) {
+    let test = new TestBattery();
+    test.test('false literal').value(false).is.false;
+    test.test('false object').value(new Boolean(false)).is.false;
+
+    let fails = new TestBattery();
+    fails.test('true literal').value(true).is.false;
+    fails.test('true object').value(new Boolean(true)).is.false;
+    fails.test('empty object').value({}).is.false;
+    fails.test('null').value(null).is.false;
+    fails.test('empty array').value([]).is.false;
+    fails.test('zero').value(0).is.false;
+    
+    getResults(test, fails, done);
+  });
+
+  it('falsey', function (done) {
+    let test = new TestBattery();
+    test.test('false literal').value(false).is.falsey;
+    test.test('null').value(null).is.falsey;
+    test.test('zero').value(0).is.falsey;
+
+    let fails = new TestBattery();
+    fails.test('false object').value(new Boolean(false)).is.falsey;
+    fails.test('true string literal').value(true).is.falsey;
+    fails.test('string object').value(new Boolean(true)).is.falsey;
+    fails.test('empty object').value({}).is.falsey;
+    fails.test('empty array').value([]).is.falsey;
+    fails.test('one').value(1).is.falsey;
+    
+    getResults(test, fails, done);
+  });
+
+  it('file', function (done) {
+    let test = new TestBattery();
+    test.test('path string').value(path.join(process.cwd(), 'TestBattery.js')).is.a.file;
+    test.test('path array').value([process.cwd(), 'TestBattery.js']).is.a.file;
+
+    let fails = new TestBattery();
+    fails.test('non-existant file').value([process.cwd(), 'TestBattery.jsxx']).is.a.file;
+    fails.test('not a regular file').value(process.cwd()).is.a.file;
+    fails.test('not a string').value(12).is.a.file;
+    
     getResults(test, fails, done);
   });
 
@@ -426,6 +507,27 @@ describe('Promise handling', function() {
       if (i % 2 === 0) {
         await test.endIfErrors();
       }
+      test.isTrue(makeTest(i, (i !== 6 && i !== 8)), 'true %s', i);
+    }
+    test.done(result => {
+      expect(result.errors.length).to.be(1);
+      expect(result.testsRefused.length).to.be(1);
+    });
+    return;
+  });
+
+  it ('batteries with stops and promises, constructed form', async function() {
+    let test = new TestBattery();
+    let makeTest = function(n, succeed = true) {
+      return new Promise(r => {
+        setTimeout(() => {r(succeed);}, 5+n);
+      });
+    }
+    for (let i = 0; i < 10; i++) {
+      if (i % 2 === 0) {
+        await test.endIfErrors();
+      }
+      test.test('equals %s == %s', i, i).value(i).value(i).equal;
       test.isTrue(makeTest(i, (i !== 6 && i !== 8)), 'true %s', i);
     }
     test.done(result => {
