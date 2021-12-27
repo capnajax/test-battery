@@ -1,6 +1,5 @@
 'use strict';
 
-import expect from 'expect.js';
 import path from 'path';
 import TestBattery from '../TestBattery.js';
 
@@ -17,27 +16,26 @@ const getResults = function(test, fails, expectedFails, done) {
   }
 
   return Promise.all([
-    new Promise((r, j) => {
+    new Promise(resolve => {
       test.done(function(d) {
-        try {
-          expect(d).to.be(undefined);
-          r();
-        } catch(reason) {
-          j(d);
-        }
+        if (d !== 'undefined') {
+          resolve(d);
+        };
+        resolve();
       })
     }),
     new Promise((r, j) => {
       if (fails) {
         fails.done(function(d) { 
-
-          try {
-            expect(d).to.not.be(undefined);
+          if (d === 'undefined') {
+            r(d);
+          } else {
             expectedFails || (expectedFails = fails.testsCompleted);
-            expect(d.errors.length).to.equal(expectedFails);
-            r();
-          } catch(reason) {
-            j({reason, result: d});
+            if (d.errors.length !== expectedFails) {
+              r(d);
+            } else {
+              r();
+            }
           }
         });
       } else {
@@ -577,8 +575,9 @@ describe('Promise handling', function() {
       test.isTrue((i !== 6 && i !== 8), 'true %s', i);
     }
     test.done(result => {
-      expect(result.errors.length).to.be(1);
-      expect(result.testsRefused.length).to.be(1);
+      if (result.errors.length !== 1 || result.testsRefused !== 1) {
+        throw new Error();
+      }
     });
     return;
   });
@@ -597,8 +596,9 @@ describe('Promise handling', function() {
       test.isTrue(makeTest(i, (i !== 6 && i !== 8)), 'true %s', i);
     }
     test.done(result => {
-      expect(result.errors.length).to.be(1);
-      expect(result.testsRefused.length).to.be(1);
+      if (result.errors.length !== 1 || result.testsRefused !== 1) {
+        throw new Error();
+      }
     });
     return;
   });
@@ -618,8 +618,9 @@ describe('Promise handling', function() {
       test.isTrue(makeTest(i, (i !== 6 && i !== 8)), 'true %s', i);
     }
     test.done(result => {
-      expect(result.errors.length).to.be(1);
-      expect(result.testsRefused.length).to.be(1);
+      if (result.errors.length !== 1 || result.testsRefused !== 1) {
+        throw new Error();
+      }
     });
     return;
   });

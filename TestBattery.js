@@ -6,9 +6,9 @@ import path, { resolve } from 'path';
 import { types } from 'util';
 import _ from 'lodash';
 
+// TODO replace these to remove dependency on lodash
 const get = _.get;
 const has = _.has;
-const isNil = _.isNil;
 
 const operators = (() => {
   let ops = {
@@ -232,7 +232,7 @@ class Test {
     } else {
       this.values.push({v});
     }
-    if (!isNil(this.expectedOperands)) {
+    if (this.expectedOperands !== null && this.expectedOperands !== undefined) {
       this.expectedOperands--;
       if (this.expectedOperands === 0) {
         this.#complete();
