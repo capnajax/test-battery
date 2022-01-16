@@ -170,7 +170,7 @@ class Test {
           let result = await this.operator.fn.apply(
             this, resolvedValues.map(v=>v.v));
           if (this.negative) {
-            result = !!result;
+            result = !result;
           }
           if (this.done) {
             if (!result) {
