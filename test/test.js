@@ -389,16 +389,56 @@ describe('Contructed form', function() {
     test.test('equivalent value comparison').value('1').value(1).equal;
     test.test('equal strings').value('1').value('1').equal;
     test.test('not unequal').value('1').value('1').not.equal;
+    test.test('all equal').value(1).value(1).value(1).equal;
 
     let fails = new TestBattery();
-    fails.test('not equal integers').value(1).value(2).not.equal;
+    fails.test('not equal integers').value(1).value(1).not.equal;
     fails.test('unequal integers').value(1).value(2).equal;
     fails.test('unequivalent values').value('1').value(2).equal;
     fails.test('unequal strings').value('1').value('2').equal;
+    fails.test('one unequal equal').value(1).value(1).value(2).equal;
 
     getResults(test, fails, done);
   });
 
+  it('in', function(done) {
+    let test = new TestBattery();
+    test.test('integers').value(2).value(1).in;
+    test.test('strings').value('2').value(1).in;
+    test.test('non-strict equality').value('2').value(1).in;
+    test.test('first value').value(1).value(1).in;
+    test.test('last value').value(3).value(1).in;
+    test.test('first array parameters').value(2).value([1,2,3]).value([4,5,6]).in;
+    test.test('second array parameters').value(6).value([1,2,3]).value([4,5,6]).in;
+
+    let fails = new TestBattery();
+    fails.test('not in').value(2).value(1).not.in;
+    fails.test('no equal integers').value(1).value(2).in;
+    fails.test('no equal strings').value(1).value(2).in;
+    fails.test('empty list').value('1').value(2).in;
+
+    getResults(test, fails, done);
+  });
+
+  it('inStrict', function(done) {
+    let test = new TestBattery();
+    test.test('integers').value(2).value(1).inStrict;
+    test.test('strings').value('2').value(1).inStrict;
+    test.test('first value').value(1).value(1).inStrict;
+    test.test('last value').value(3).value(1).inStrict;
+    test.test('first array parameters').value(2).value([1,2,3]).value([4,5,6]).inStrict;
+    test.test('second array parameters').value(6).value([1,2,3]).value([4,5,6]).inStrict;
+
+    let fails = new TestBattery();
+    fails.test('not in').value(2).value(1).not.inStrict;
+    fails.test('no equal integers').value(1).value(2).inStrict;
+    fails.test('no equal strings').value(1).value(2).inStrict;
+    fails.test('strict equality').value('1').value(1).inStrict;
+    fails.test('empty list').value('1').value(2).inStrict;
+
+    getResults(test, fails, done);
+  });
+  
   it('false', function (done) {
     let test = new TestBattery();
     test.test('false literal').value(false).is.false;

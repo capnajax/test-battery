@@ -8,7 +8,25 @@ import _ from 'lodash';
 
 // TODO replace these to remove dependency on lodash
 const get = _.get;
-const has = _.has;
+
+function inList(term, list, strict) {
+  if (!['string', 'number'].includes(typeof term)) {
+    throw new Error('`in` and `inStrict` can only validate strings or ' +
+      `numbers, got ${typeof term}`);
+  }
+  for (let listItem of list) {
+    if (listItem instanceof Array) {
+      if (inList(term, listItem, strict)) {
+        return true;
+      }
+    } else if (strict && term === listItem) {
+      return true;
+    } else if (term == listItem) {
+      return true;
+    }
+  }
+  return false;
+}
 
 const operators = (() => {
   let ops = {
@@ -81,6 +99,18 @@ const operators = (() => {
           return false;
         });
     },
+    in: {
+      fn: (a, ...b) => {
+        return inList(a, b, false);
+      },
+      minArgs: 0
+    },
+    inStrict: {
+      fn: (a, ...b) => {
+        return inList(a, b, false);
+      },
+      minArgs: 0
+    },
     nil: a => {
       return ( a === null || a === undefined )
     },
@@ -110,7 +140,7 @@ const operators = (() => {
     if (typeof o === 'function') {
       o = { fn: o, numArgs: o.length };
       ops[k] = o;
-    } else if (!o.numArgs && !o.minArgs) {
+    } else if (o.numArgs !== undefined && !o.minArgs !== undefined) {
       o.numArgs = o.fn.length;
     }
     o.name = k;
@@ -139,7 +169,7 @@ class Test {
               let op = operators[k];
               let tvl = this.values.length;
               this.operator = op;
-              if (has(op, 'numArgs')) {
+              if (op?.numArgs !== undefined) {
                 if (tvl === op.numArgs) {
                   return this.#complete();
                 } else if (tvl < op.numArgs) {
@@ -148,7 +178,7 @@ class Test {
                 } else {
                   throw new Error(`too many values for operator \"${k}\"`)
                 }
-              } else if (has(op, 'minArgs')) {
+              } else if (op?.minArgs !== undefined) {
                 if (tvl >= op.minArgs) {
                   return this.#complete();
                 } else {
