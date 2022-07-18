@@ -408,6 +408,7 @@ describe('Contructed form', function() {
     test.test('non-strict equality').value('2').value(1).in;
     test.test('first value').value(1).value(1).in;
     test.test('last value').value(3).value(1).in;
+    test.test('one array parameter').value(2).value([1,2,3]).in;
     test.test('first array parameters').value(2).value([1,2,3]).value([4,5,6]).in;
     test.test('second array parameters').value(6).value([1,2,3]).value([4,5,6]).in;
 
