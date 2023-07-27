@@ -1,13 +1,13 @@
 'use strict';
 
-import format from 'format';
+import { format } from 'util';
 import fs from 'fs';
 import path, { resolve } from 'path';
 import { types } from 'util';
-import _ from 'lodash';
+import _xxx_do_not_use_directly from 'lodash';
 
 // TODO replace these to remove dependency on lodash
-const get = _.get;
+const get = _xxx_do_not_use_directly.get;
 
 function inList(term, list, strict) {
   if (!['string', 'number'].includes(typeof term)) {
@@ -19,10 +19,16 @@ function inList(term, list, strict) {
       if (inList(term, listItem, strict)) {
         return true;
       }
-    } else if (strict && term === listItem) {
-      return true;
-    } else if (term == listItem) {
-      return true;
+    } else {
+      if (strict) {
+        if (term === listItem) {
+          return true;
+        }
+      } else {
+        if (term == listItem) {
+          return true;
+        }
+      }
     }
   }
   return false;
@@ -102,15 +108,17 @@ const operators = (() => {
     },
     in: {
       fn: (a, ...b) => {
-        return inList(a, b, false);
+        let result = inList(a, b, false);
+        return result;
       },
-      minArgs: 0
+      minArgs: 1
     },
     inStrict: {
       fn: (a, ...b) => {
-        return inList(a, b, false);
+        let result = inList(a, b, true);
+        return result;
       },
-      minArgs: 0
+      minArgs: 1
     },
     nil: a => {
       return ( a === null || a === undefined )
@@ -141,7 +149,7 @@ const operators = (() => {
     if (typeof o === 'function') {
       o = { fn: o, numArgs: o.length };
       ops[k] = o;
-    } else if (o.numArgs !== undefined && !o.minArgs !== undefined) {
+    } else if (o.numArgs !== undefined && o.minArgs === undefined) {
       o.numArgs = o.fn.length;
     }
     o.name = k;
@@ -382,7 +390,6 @@ class TestBattery {
           this.errors.push(errorString());
         }
         this.testsCompleted++;
-
       }
     }
     if (this.refuseTests) {
@@ -422,12 +429,16 @@ class TestBattery {
   /**
    * @method fail
    * Tests that always fails
-   * @param {*} result the result to test.
+   * @param {*} [result] the result to test.
    * @param {string} should an error message. Can include parameterizations to
    *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
   fail(result, should, ...params) {
+    if (!should && typeof result === 'string') {
+      should = result;
+      result = undefined;
+    }
     this.doTest(function() {
       return false;
     }, result, should, params);

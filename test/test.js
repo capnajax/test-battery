@@ -2,9 +2,20 @@
 
 import path from 'path';
 import TestBattery from '../TestBattery.js';
-import _ from 'lodash';
 
-const { get } = _;
+// add to this array to focus on a specific test, or leave it empty to run all
+// tests. If this is not empty, the 'All tests run' test will fail.
+const focusTests = [];
+
+function focus(description, test) {
+  let runTest = !focusTests || focusTests.length === 0;
+  if (focusTests) {
+    if (focusTests.includes(description)) {
+      runTest = true
+    }
+  }
+  runTest && it(description, test);
+}
 
 const getResults = function(test, fails, expectedFails, done) {
 
@@ -33,9 +44,9 @@ const getResults = function(test, fails, expectedFails, done) {
           if (d === 'undefined') {
             r(d);
           } else {
-            expectedFails || (expectedFails = fails.testsCompleted);
+            expectedFails ||= fails.testsCompleted;
             if (d.errors.length !== expectedFails) {
-              r(d);
+              r({errors: ['failed to fail. Successful failures: ' + JSON.stringify(d.errors)]});
             } else {
               r();
             }
@@ -46,8 +57,14 @@ const getResults = function(test, fails, expectedFails, done) {
       }
     })
   ])
-  .then(() => {
-    done();
+  .then((results) => {
+    let errors = [];
+    results.forEach(r => {
+      if (r?.errors !== undefined) {
+        errors.push(...(r.errors));
+      }
+    })
+    done(errors.length ? errors : undefined);
   })
   .catch((reason) => {
     console.error(reason);
@@ -57,7 +74,7 @@ const getResults = function(test, fails, expectedFails, done) {
 
 describe('Simple Form', function() {
 
-  it('array', function (done) {
+  focus('array', function (done) {
     let test = new TestBattery();
     test.isArray([], 'empty array');
     test.isArray([1,2,3], 'integer array');
@@ -72,7 +89,7 @@ describe('Simple Form', function() {
     getResults(test, fails, done);
   });
 
-  it('boolean', function (done) {
+  focus('boolean', function (done) {
     let test = new TestBattery();
     test.isBoolean(true, 'true');
     test.isBoolean(false, 'false');
@@ -93,7 +110,7 @@ describe('Simple Form', function() {
     getResults(test, fails, done);
   });
 
-  it('directory', function (done) {
+  focus('directory', function (done) {
     let test = new TestBattery();
     test.isDirectory(path.join(process.cwd()), 'path string');
     test.isDirectory([process.cwd(), '.'], 'path array');
@@ -106,7 +123,7 @@ describe('Simple Form', function() {
     getResults(test, fails, done);
   });
 
-  it('empty array', function (done) {
+  focus('empty array', function (done) {
     let test = new TestBattery();
     test.isEmptyArray([], 'empty array literal');
     test.isEmptyArray(new Array(), 'empty array object');
@@ -121,7 +138,7 @@ describe('Simple Form', function() {
     getResults(test, fails, done);
   });
 
-  it('empty object', function (done) {
+  focus('empty object', function (done) {
     let test = new TestBattery();
     test.isEmptyObject({}, 'empty object literal');
     test.isEmptyObject(new Object(), 'empty object object');
@@ -136,7 +153,7 @@ describe('Simple Form', function() {
     getResults(test, fails, done);
   });
 
-  it('empty string', function (done) {
+  focus('empty string', function (done) {
     let test = new TestBattery();
     test.isEmptyString('', 'empty string literal');
     test.isEmptyString(new String(), 'empty string object');
@@ -151,7 +168,7 @@ describe('Simple Form', function() {
     getResults(test, fails, done);
   });
 
-  it('equal', function (done) {
+  focus('equal', function (done) {
     let test = new TestBattery();
     test.isEqual(1, 1, 'equal integers');
     test.isEqual(1, '1', 'equal ones');
@@ -177,14 +194,14 @@ describe('Simple Form', function() {
     getResults(test, fails, done);
   });
 
-  it('fail', function(done) {
+  focus('fail', function(done) {
     let test = new TestBattery();
     let fails = new TestBattery();
-    fails.fail('fail', 'fail');    
+    fails.fail('fail');    
     getResults(test, fails, done);
   });
 
-  it('false', function (done) {
+  focus('false', function (done) {
     let test = new TestBattery();
     test.isFalse(false, 'false literal');
     test.isFalse(new Boolean(false), 'false object');
@@ -200,7 +217,7 @@ describe('Simple Form', function() {
     getResults(test, fails, done);
   });
 
-  it('falsey', function (done) {
+  focus('falsey', function (done) {
     let test = new TestBattery();
     test.isFalsey(false, 'false literal');
     test.isFalsey(null, 'null');
@@ -217,7 +234,7 @@ describe('Simple Form', function() {
     getResults(test, fails, done);
   });
 
-  it('file', function (done) {
+  focus('file', function (done) {
     let test = new TestBattery();
     test.isFile(path.join(process.cwd(), 'TestBattery.js'), 'path string');
     test.isFile([process.cwd(), 'TestBattery.js'], 'path array');
@@ -230,7 +247,7 @@ describe('Simple Form', function() {
     getResults(test, fails, done);
   });
 
-  it('nil', function (done) {
+  focus('nil', function (done) {
     let test = new TestBattery();
     test.isNil(null, 'null');
     test.isNil(undefined, 'undefined');
@@ -242,7 +259,7 @@ describe('Simple Form', function() {
     getResults(test, fails, done);
   });
 
-  it('null', function (done) {
+  focus('null', function (done) {
     let test = new TestBattery();
     test.isNull(null, 'null');
 
@@ -254,7 +271,7 @@ describe('Simple Form', function() {
     getResults(test, fails, done);
   });
 
-  it('strictly equal', function (done) {
+  focus('strictly equal', function (done) {
     let test = new TestBattery();
     test.isStrictlyEqual(1, 1, 'equal integers');
     test.isStrictlyEqual('1', '1', 'equal strings');
@@ -272,7 +289,7 @@ describe('Simple Form', function() {
     getResults(test, fails, done);
   });
 
-  it('true', function (done) {
+  focus('true', function (done) {
     let test = new TestBattery();
     test.isTrue(true, 'true literal');
     test.isTrue(new Boolean(true), 'true object');
@@ -288,7 +305,7 @@ describe('Simple Form', function() {
     getResults(test, fails, done);
   });
 
-  it('truthy', function (done) {
+  focus('truthy', function (done) {
     let test = new TestBattery();
     test.isTruthy(true, 'true literal');
     test.isTruthy(!null, 'null');
@@ -306,7 +323,7 @@ describe('Simple Form', function() {
     getResults(test, fails, done);
   });
 
-  it('undefined', function (done) {
+  focus('undefined', function (done) {
     let test = new TestBattery();
     test.isUndefined(undefined, 'undefined');
 
@@ -319,9 +336,9 @@ describe('Simple Form', function() {
   });
 });
 
-describe('Contructed form', function() {
+describe('Constructed form', function() {
 
-  it('array', function (done) {
+  focus('array', function (done) {
     let test = new TestBattery();
     test.test('empty array').value([]).is.array;
     test.test('integer array').value([1,2,3]).is.array;
@@ -336,7 +353,7 @@ describe('Contructed form', function() {
     getResults(test, fails, done);
   });
 
-  it('boolean', function (done) {
+  focus('boolean', function (done) {
     let test = new TestBattery();
     test.test('true').value(true).is.boolean;
     test.test('false').value(false).is.boolean;
@@ -357,7 +374,7 @@ describe('Contructed form', function() {
     getResults(test, fails, done);'string'
   });
 
-  it('directory', function (done) {
+  focus('directory', function (done) {
     let test = new TestBattery();
     test.test('path string').value(path.join(process.cwd())).is.a.directory;
     test.test('path array').value([process.cwd(), 'test']).is.a.directory;
@@ -370,7 +387,7 @@ describe('Contructed form', function() {
     getResults(test, fails, done);
   });
 
-  it('empty', function (done) {
+  focus('empty', function (done) {
     let test = new TestBattery();
     test.test('empty array literal').value([]).is.empty;
     test.test('empty array object').value(new Array()).is.empty;
@@ -393,12 +410,12 @@ describe('Contructed form', function() {
     getResults(test, fails, done);
   });
   
-  it('equal', function(done) {
+  focus('equal', function(done) {
     let test = new TestBattery();
     test.test('equal integers').value(1).value(1).equal;
     test.test('equivalent value comparison').value('1').value(1).equal;
     test.test('equal strings').value('1').value('1').equal;
-    test.test('not unequal').value('1').value('1').not.equal;
+    test.test('not unequal').value('1').value('2').not.equal;
     test.test('all equal').value(1).value(1).value(1).equal;
 
     let fails = new TestBattery();
@@ -411,52 +428,52 @@ describe('Contructed form', function() {
     getResults(test, fails, done);
   });
 
-  it('in', function(done) {
+  focus('in', function(done) {
     let test = new TestBattery();
-    test.test('integers').value(2).value(1).in;
-    test.test('strings').value('2').value(1).in;
-    test.test('non-strict equality').value('2').value(1).in;
-    test.test('first value').value(1).value(1).in;
-    test.test('last value').value(3).value(1).in;
+    test.test('integers').value(2).value(2).in;
+    test.test('strings').value('2').value('2').in;
+    test.test('non-strict equality').value('2').value(2).in;
+    test.test('first value').value(1).value(1).value(3).in;
+    test.test('last value').value(3).value(1).value(3).in;
     test.test('first array parameters').value(2).value([1,2,3]).value([4,5,6]).in;
     test.test('second array parameters').value(6).value([1,2,3]).value([4,5,6]).in;
 
     let fails = new TestBattery();
-    fails.test('not in').value(2).value(1).not.in;
-    fails.test('no equal integers').value(1).value(2).in;
-    fails.test('no equal strings').value(1).value(2).in;
+    fails.test('not in').value(2).value(1).in;
+    fails.test('no equal integers').value(1).value([2,3,4]).in;
+    fails.test('no equal strings').value('1').value(['2','3','4']).in;
     fails.test('empty list').value('1').value(2).in;
 
     getResults(test, fails, done);
   });
 
-  it('inStrict', function(done) {
+  focus('inStrict', function(done) {
     let test = new TestBattery();
-    test.test('integers').value(2).value(1).inStrict;
-    test.test('strings').value('2').value(1).inStrict;
-    test.test('first value').value(1).value(1).inStrict;
-    test.test('last value').value(3).value(1).inStrict;
+    test.test('integers').value(2).value(2).inStrict;
+    test.test('strings').value('2').value('2').inStrict;
+    test.test('first value').value(1).value(1).value(3).inStrict;
+    test.test('last value').value(3).value(1).value(3).inStrict;
     test.test('first array parameters').value(2).value([1,2,3]).value([4,5,6]).inStrict;
     test.test('second array parameters').value(6).value([1,2,3]).value([4,5,6]).inStrict;
 
     let fails = new TestBattery();
-    fails.test('not in').value(2).value(1).not.inStrict;
+    fails.test('not in').value(2).value(1).inStrict;
     fails.test('no equal integers').value(1).value(2).inStrict;
     fails.test('no equal strings').value(1).value(2).inStrict;
     fails.test('strict equality').value('1').value(1).inStrict;
-    fails.test('empty list').value('1').value(2).inStrict;
+    fails.test('empty list').value('1').value([]).inStrict;
 
     getResults(test, fails, done);
   });
 
-  it('fail', function(done) {
+  focus('fail', function(done) {
     let test = new TestBattery();
     let fails = new TestBattery();
     fails.test('fail').fail;
     getResults(test, fails, done);
   })
   
-  it('false', function (done) {
+  focus('false', function (done) {
     let test = new TestBattery();
     test.test('false literal').value(false).is.false;
     test.test('false object').value(new Boolean(false)).is.false;
@@ -472,7 +489,7 @@ describe('Contructed form', function() {
     getResults(test, fails, done);
   });
 
-  it('falsey', function (done) {
+  focus('falsey', function (done) {
     let test = new TestBattery();
     test.test('false literal').value(false).is.falsey;
     test.test('null').value(null).is.falsey;
@@ -489,7 +506,7 @@ describe('Contructed form', function() {
     getResults(test, fails, done);
   });
 
-  it('file', function (done) {
+  focus('file', function (done) {
     let test = new TestBattery();
     test.test('path string').value(path.join(process.cwd(), 'TestBattery.js')).is.a.file;
     test.test('path array').value([process.cwd(), 'TestBattery.js']).is.a.file;
@@ -502,7 +519,7 @@ describe('Contructed form', function() {
     getResults(test, fails, done);
   });
 
-  it('nil', function (done) {
+  focus('nil', function (done) {
     let test = new TestBattery();
     test.test('null').value(null).is.nil;
     test.test('undefined').value(undefined).is.nil;
@@ -514,7 +531,7 @@ describe('Contructed form', function() {
     getResults(test, fails, done);
   });
 
-  it('null', function (done) {
+  focus('null', function (done) {
     let test = new TestBattery();
     test.test('null').value(null).is.null;
 
@@ -526,7 +543,7 @@ describe('Contructed form', function() {
     getResults(test, fails, done);
   });
 
-  it('strictly equal', function (done) {
+  focus('strictly equal', function (done) {
     let test = new TestBattery();
     test.test('equal integers').value(1).value(1).is.strictlyEqual;
     test.test('equal strings').value('1').value('1').is.strictlyEqual;
@@ -544,7 +561,7 @@ describe('Contructed form', function() {
     getResults(test, fails, done);
   });
 
-  it('true', function (done) {
+  focus('true', function (done) {
     let test = new TestBattery();
     test.test('true literal').value(true).is.true;
     test.test('true object').value(new Boolean(true)).is.true;
@@ -560,7 +577,7 @@ describe('Contructed form', function() {
     getResults(test, fails, done);
   });
 
-  it('truthy', function (done) {
+  focus('truthy', function (done) {
     let test = new TestBattery();
     test.test('true literal').value(true).is.truthy;
     test.test('null').value(!null).is.truthy;
@@ -578,7 +595,7 @@ describe('Contructed form', function() {
     getResults(test, fails, done);
   });
 
-  it('undefined', function (done) {
+  focus('undefined', function (done) {
     let test = new TestBattery();
     test.test('undefined').value(undefined).is.undefined;
 
@@ -594,7 +611,7 @@ describe('Contructed form', function() {
 
 describe('Promise handling', function() {
 
-  it ('batteries without promises', function(done) {
+  it('batteries without promises', function(done) {
     let test = new TestBattery();
     for (let i = 0; i < 10; i++) {
       test.isTrue(true, 'true %s', i);
@@ -606,7 +623,7 @@ describe('Promise handling', function() {
     getResults(test, fails, 1, done);
   });
 
-  it ('batteries with promises', function(done) {
+  it('batteries with promises', function(done) {
     let test = new TestBattery();
     let makeTest = function(n, succeed = true) {
       return new Promise(r => {
@@ -623,7 +640,7 @@ describe('Promise handling', function() {
     getResults(test, fails, 1, done);
   });
 
-  it ('batteries with a stop but without promises', async function() {
+  it('batteries with a stop but without promises', async function() {
     let test = new TestBattery();
     for (let i = 0; i < 10; i++) {
       if (i % 2 === 0) {
@@ -639,7 +656,7 @@ describe('Promise handling', function() {
     return;
   });
 
-  it ('batteries with stops and promises', async function() {
+  it('batteries with stops and promises', async function() {
     let test = new TestBattery();
     let makeTest = function(n, succeed = true) {
       return new Promise(r => {
@@ -660,7 +677,7 @@ describe('Promise handling', function() {
     return;
   });
 
-  it ('batteries with stops and promises, constructed form', async function() {
+  it('batteries with stops and promises, constructed form', async function() {
     let test = new TestBattery();
     let makeTest = function(n, succeed = true) {
       return new Promise(r => {
@@ -681,5 +698,12 @@ describe('Promise handling', function() {
     });
     return;
   });
-
 });
+
+describe('All tests run', function() {
+  it('test is not focused', function() {
+    if (focusTests && focusTests.length) {
+      throw new Error('focusTests is not empty or undefined');
+    }
+  });
+})

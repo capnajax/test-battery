@@ -1,6 +1,6 @@
 {
   "name": "test-battery",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Test engine for JavaScript",
   "main": "TestBattery.js",
   "type": "module",
@@ -25,7 +25,6 @@
   },
   "homepage": "https://github.com/capnajax/test-battery#readme",
   "dependencies": {
-    "format": "^0.2.2",
     "lodash": "^4.17.21"
   },
   "devDependencies": {
