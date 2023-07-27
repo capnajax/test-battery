@@ -1,10 +1,11 @@
 {
   "name": "test-battery",
-  "version": "0.3.0",
+  "version": "1.0.0",
   "description": "Test engine for JavaScript",
   "main": "TestBattery.js",
   "type": "module",
   "scripts": {
+    "testc": "node_modules/mocha/bin/mocha -c",
     "test": "node_modules/mocha/bin/mocha"
   },
   "repository": {

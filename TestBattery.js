@@ -84,6 +84,7 @@ const operators = (() => {
       ( a && a.valueOf && a.valueOf(a) === false) )
     },
     falsey: a => !a,
+    fail: () => false,
     file: a => {
       let file = Array.isArray(a)
         ? path.join.apply(null, a)
@@ -419,12 +420,26 @@ class TestBattery {
   }
 
   /**
+   * @method fail
+   * Tests that always fails
+   * @param {*} result the result to test.
+   * @param {string} should an error message. Can include parameterizations to
+   *  be filled in with `format`.
+   * @param  {...any} [params] parameters for the error message
+   */
+  fail(result, should, ...params) {
+    this.doTest(function() {
+      return false;
+    }, result, should, params);
+  }
+
+  /**
    * @method isArray
    * Tests if `result` is an array.
    * @param {*} result the result to test. If `result` is a promise, it'll test
    *  the value that the promise resolves with.
-   * @param {string} should an error message. Can include parameterizations to be
-   *  filled in with `format`.
+   * @param {string} should an error message. Can include parameterizations to
+   *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
   isArray(result, should, ...params) {
@@ -439,8 +454,8 @@ class TestBattery {
    * Boolean objects.
    * @param {*} result the result to test. If `result` is a promise, it'll test
    *  the value that the promise resolves with.
-   * @param {string} should an error message. Can include parameterizations to be
-   *  filled in with `format`.
+   * @param {string} should an error message. Can include parameterizations to
+   *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
   isBoolean(result, should, ...params) {
@@ -456,8 +471,8 @@ class TestBattery {
    * it. All other types will always fail the test.
    * @param {*} result the result to test. If `result` is a promise, it'll test
    *  the value that the promise resolves with.
-   * @param {string} should an error message. Can include parameterizations to be
-   *  filled in with `format`.
+   * @param {string} should an error message. Can include parameterizations to
+   *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
    isDirectory(result, should, ...params) {
@@ -483,8 +498,8 @@ class TestBattery {
    * Tests if `result` is an empty array.
    * @param {*} result the result to test. If `result` is a promise, it'll test
    *  the value that the promise resolves with.
-   * @param {string} should an error message. Can include parameterizations to be
-   *  filled in with `format`.
+   * @param {string} should an error message. Can include parameterizations to
+   *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
   isEmptyArray(result, should, ...params) {
@@ -498,8 +513,8 @@ class TestBattery {
    * Tests if `result` is an empty object that is not an array.
    * @param {*} result the result to test. If `result` is a promise, it'll test
    *  the value that the promise resolves with.
-   * @param {string} should an error message. Can include parameterizations to be
-   *  filled in with `format`.
+   * @param {string} should an error message. Can include parameterizations to
+   *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
    isEmptyObject(result, should, ...params) {
@@ -515,8 +530,8 @@ class TestBattery {
    * String objects.
    * @param {*} result the result to test. If `result` is a promise, it'll test
    *  the value that the promise resolves with.
-   * @param {string} should an error message. Can include parameterizations to be
-   *  filled in with `format`.
+   * @param {string} should an error message. Can include parameterizations to
+   *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
   isEmptyString(result, should, ...params) {
@@ -534,8 +549,8 @@ class TestBattery {
    *  the value that the promise resolves with.
    * @param {*} a the second value to test. If `result` is a promise, it'll test
    *  the value that the promise resolves with.
-   * @param {string} should an error message. Can include parameterizations to be
-   *  filled in with `format`.
+   * @param {string} should an error message. Can include parameterizations to
+   *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
   isEqual(a, b, should, ...params) {
@@ -551,8 +566,8 @@ class TestBattery {
    * just evaluate to false.
    * @param {*} result the result to test. If `result` is a promise, it'll test
    *  the value that the promise resolves with.
-   * @param {string} should an error message. Can include parameterizations to be
-   *  filled in with `format`.
+   * @param {string} should an error message. Can include parameterizations to
+   *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
   isFalse(result, should, ...params) {
@@ -568,8 +583,8 @@ class TestBattery {
    * added a bang to it. (e.g. !null === true)
    * @param {*} result the result to test. If `result` is a promise, it'll test
    *  the value that the promise resolves with.
-   * @param {string} should an error message. Can include parameterizations to be
-   *  filled in with `format`.
+   * @param {string} should an error message. Can include parameterizations to
+   *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
   isFalsey(result, should, ...params) {
@@ -585,8 +600,8 @@ class TestBattery {
    * it. All other types will always fail the test.
    * @param {*} result the result to test. If `result` is a promise, it'll test
    *  the value that the promise resolves with.
-   * @param {string} should an error message. Can include parameterizations to be
-   *  filled in with `format`.
+   * @param {string} should an error message. Can include parameterizations to
+   *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
   isFile(result, should, ...params) {
@@ -612,8 +627,8 @@ class TestBattery {
    * Tests if `result` is `null` or `undefined`.
    * @param {*} result the result to test. If `result` is a promise, it'll test
    *  the value that the promise resolves with.
-   * @param {string} should an error message. Can include parameterizations to be
-   *  filled in with `format`.
+   * @param {string} should an error message. Can include parameterizations to
+   *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
   isNil(result, should, ...params) {
@@ -627,8 +642,8 @@ class TestBattery {
    * Tests if `result` is `null`.
    * @param {*} result the result to test. If `result` is a promise, it'll test
    *  the value that the promise resolves with.
-   * @param {string} should an error message. Can include parameterizations to be
-   *  filled in with `format`.
+   * @param {string} should an error message. Can include parameterizations to
+   *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
   isNull(result, should, ...params) {
@@ -645,8 +660,8 @@ class TestBattery {
    *  the value that the promise resolves with.
    * @param {*} a the second value to test. If `result` is a promise, it'll test
    *  the value that the promise resolves with.
-   * @param {string} should an error message. Can include parameterizations to be
-   *  filled in with `format`.
+   * @param {string} should an error message. Can include parameterizations to
+   *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
    isStrictlyEqual(a, b, should, ...params) {
@@ -661,8 +676,8 @@ class TestBattery {
    * objects.
    * @param {*} result the result to test. If `result` is a promise, it'll test
    *  the value that the promise resolves with.
-   * @param {string} should an error message. Can include parameterizations to be
-   *  filled in with `format`.
+   * @param {string} should an error message. Can include parameterizations to
+   *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
   isString(result, should, ...params) {
@@ -678,8 +693,8 @@ class TestBattery {
    * just evaluate to true.
    * @param {*} result the result to test. If `result` is a promise, it'll test
    *  the value that the promise resolves with.
-   * @param {string} should an error message. Can include parameterizations to be
-   *  filled in with `format`.
+   * @param {string} should an error message. Can include parameterizations to
+   *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
   isTrue(result, should, ...params) {
@@ -695,8 +710,8 @@ class TestBattery {
    * added a double bang to it. (e.g. !!'hi' === true)
    * @param {*} result the result to test. If `result` is a promise, it'll test
    *  the value that the promise resolves with.
-   * @param {string} should an error message. Can include parameterizations to be
-   *  filled in with `format`.
+   * @param {string} should an error message. Can include parameterizations to
+   *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
   isTruthy(result, should, ...params) {
@@ -710,8 +725,8 @@ class TestBattery {
    * Tests if `result` is an `undefined`.
    * @param {*} result the result to test. If `result` is a promise, it'll test
    *  the value that the promise resolves with.
-   * @param {string} should an error message. Can include parameterizations to be
-   *  filled in with `format`.
+   * @param {string} should an error message. Can include parameterizations to
+   *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
   isUndefined(result, should, ...params) {

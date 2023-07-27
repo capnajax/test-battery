@@ -2,6 +2,9 @@
 
 import path from 'path';
 import TestBattery from '../TestBattery.js';
+import _ from 'lodash';
+
+const { get } = _;
 
 const getResults = function(test, fails, expectedFails, done) {
 
@@ -171,6 +174,13 @@ describe('Simple Form', function() {
     fails.isEqual(true, false, 'unequal booleans');
     fails.isEqual(true, '2', 'unequal truths');
     
+    getResults(test, fails, done);
+  });
+
+  it('fail', function(done) {
+    let test = new TestBattery();
+    let fails = new TestBattery();
+    fails.fail('fail', 'fail');    
     getResults(test, fails, done);
   });
 
@@ -438,6 +448,13 @@ describe('Contructed form', function() {
 
     getResults(test, fails, done);
   });
+
+  it('fail', function(done) {
+    let test = new TestBattery();
+    let fails = new TestBattery();
+    fails.test('fail').fail;
+    getResults(test, fails, done);
+  })
   
   it('false', function (done) {
     let test = new TestBattery();
