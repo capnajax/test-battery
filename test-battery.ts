@@ -2,14 +2,27 @@
 
 import { format } from 'util';
 import fs from 'fs';
-import path, { resolve } from 'path';
+import path from 'path';
 import { types } from 'util';
-import _xxx_do_not_use_directly from 'lodash';
 
-// TODO replace these to remove dependency on lodash
-const get = _xxx_do_not_use_directly.get;
+function get<TObject, TValue>(
+  object: TObject,
+  path: Array<string | number>,
+  defaultValue?: TValue
+): TValue | undefined {
+  let result: any = object;
 
-function inList(term, list, strict) {
+  for (let key of path) {
+      if (result == null) {
+          return defaultValue;
+      }
+      result = result[key];
+  }
+
+  return result === undefined ? defaultValue : result;
+}
+
+function inList(term:string|number, list:Array<any>, strict:boolean):boolean {
   if (!['string', 'number'].includes(typeof term)) {
     throw new Error('`in` and `inStrict` can only validate strings or ' +
       `numbers, got ${typeof term}`);
@@ -34,8 +47,22 @@ function inList(term, list, strict) {
   return false;
 }
 
+interface EvaluationOperatorFunction { (a:any):boolean|Promise<boolean>; }
+interface EvaluationOperatorProtoObject {
+  fn:EvaluationOperatorFunction,
+  minArgs?:number,
+  name?:string,
+  numArgs?:number
+}
+interface EvaluationOperator {
+  fn:EvaluationOperatorFunction,
+  minArgs?:number,
+  name:string,
+  numArgs?:number
+}
+
 const operators = (() => {
-  let ops = {
+  const ops:Record<string, EvaluationOperatorFunction|EvaluationOperatorProtoObject> = {
     // operators can just be a function, or an object with `fn` and `minArgs` or
     // `numArgs`
     array: Array.isArray,
@@ -54,7 +81,7 @@ const operators = (() => {
       }
       return fs.promises.stat(dir)
         .then(stat => {
-          return stat.isDirectory(dir);
+          return stat.isDirectory();
         })
         .catch(() => {
           return false;
@@ -154,20 +181,30 @@ const operators = (() => {
     }
     o.name = k;
   }
-  return ops;
+  return ops as Record<string, EvaluationOperator>;
 })();
 
 class Test {
   
-  constructor(done, message, options) {
+  done:Function;
+  message:string;
+  expectedOperands:number;
+  values:Array<any>;
+  negative:boolean;
+  operator:EvaluationOperator|undefined;
+  isComplete:boolean;
+  options:Record<string, any>;
+
+  constructor(done:Function, message:string, options:Record<string, any>) {
     this.done = done;
     this.message = message;
     // if defined, test will complete when this number reaches zero
-    this.expectedOperands;
+    this.expectedOperands = 0;
     this.values = [];
     this.negative = false;
     this.operator;
     this.isComplete = false;
+    this.options = options;
 
     for (let k of Object.keys(operators)) {
       Object.defineProperty(this, k, 
@@ -191,7 +228,7 @@ class Test {
                 if (tvl >= op.minArgs) {
                   return this.#complete();
                 } else {
-                  this.expectedOperands = op.numArgs - tvl;
+                  this.expectedOperands = op.numArgs as unknown as number - tvl;
                   return this;
                 }
               }
@@ -206,8 +243,9 @@ class Test {
     this.isComplete = true;
     return Promise.all(this.values)
         .then(async resolvedValues => {
-          let result = await this.operator.fn.apply(
-            this, resolvedValues.map(v=>v.v));
+          let result = await (this.operator as unknown as EvaluationOperator)
+            // @ts-ignore 
+            .fn.apply(this, resolvedValues.map(v=>v.v));
           if (this.negative) {
             result = !result;
           }
@@ -242,7 +280,7 @@ class Test {
     return this;
   }
 
-  member(path, defaultValue) {
+  member(path:(string|number)[], defaultValue?:any) {
     this.#testIfComplete();
     let lastValueIdx = this.values.length - 1;
     if (lastValueIdx < 0) {
@@ -253,7 +291,7 @@ class Test {
       this.values[lastValueIdx] =
         lastValue.then(v => get(v, path, defaultValue));
     } else {
-      this.values[lastValueIdx] = get(v, path, defaultValue);
+      this.values[lastValueIdx] = get(lastValue, path, defaultValue);
     }
     return this;
   }
@@ -264,10 +302,10 @@ class Test {
     return this;
   }
 
-  value(v) {
+  value(v:any) {
     this.#testIfComplete();
     if (types.isPromise(v)) {
-      this.values.push(Promise.then(v=>{v}));
+      this.values.push(v.then(v=>{v}));
     } else {
       this.values.push({v});
     }
@@ -279,14 +317,21 @@ class Test {
     }
     return this;
   }
-  v(v) {
+  v(v:any) {
     return this.value(v);
   }
 }
 
 class TestBattery {
 
-  constructor(name) {
+  name:string;
+  errors:Array<string>;
+  promises:Array<Promise<any>>;
+  testsCompleted:number;
+  refuseTests:boolean;
+  testsRefused:Array<string>;
+
+  constructor(name:string) {
     this.name = name
     this.errors = [];
     this.promises = [];
@@ -295,11 +340,12 @@ class TestBattery {
     this.testsRefused = [];
   }
 
-  test(should, ...params) {
+  test(should:string, ...params:any[]) {
     let message = format.apply(null, [should].concat(params || []));
     let testOptions = { dummy: false };
 
-    let testPromiseResolve, testPromiseReject;
+    let testPromiseResolve:undefined|((value?:any)=>void);
+    let testPromiseReject:undefined|((reason?:any)=>void);
     this.promises.push(new Promise((resolve, reject) => {
       testPromiseResolve = resolve;
       testPromiseReject = reject;
@@ -311,11 +357,11 @@ class TestBattery {
     }
 
     let result = new Test(
-      error => {
+      (error:string) => {
         if (error) {
           this.errors.push(error);
         }
-        testPromiseResolve();
+        testPromiseResolve && testPromiseResolve();
         this.testsCompleted++
       },
       message,
@@ -347,14 +393,14 @@ class TestBattery {
    * withou any parameters;
    * @param {*} done 
    */
-  done(done) {
+  done(done?:Function) {
     return Promise.allSettled(this.promises)
       .then(() => {
         if (this.errors.length || this.testsRefused.length) {
-          let result = {
+          let result:Record<string,any> = {
             errors: this.errors
           };
-          this.refuseTests && (result.testsRefused.push(this.testsRefused));
+          this.refuseTests && (result.testsRefused = [...this.testsRefused]);
           done && done(result);
           return result;
         } else {
@@ -375,11 +421,11 @@ class TestBattery {
    * @param { tring} should the error message to add if there's a failure. 
    * @param {...any} params parameters for the error message
    */
-  doTest(core, result, should, params) {
+  doTest(core:Function, result:any, should:string, params:any[]) {
     const errorString = () => {
       return format.apply(null, [should].concat(params || []));
     }
-    const testCoreResult = (coreResult) => {
+    const testCoreResult = (coreResult:any) => {
       if (types.isPromise(coreResult)) {
         this.promises.push(coreResult);
         coreResult.then(r => {
@@ -434,7 +480,7 @@ class TestBattery {
    *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
-  fail(result, should, ...params) {
+  fail(result:any, should:string, ...params:any[]) {
     if (!should && typeof result === 'string') {
       should = result;
       result = undefined;
@@ -453,8 +499,8 @@ class TestBattery {
    *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
-  isArray(result, should, ...params) {
-    this.doTest(function(result) {
+  isArray(result:any, should:string, ...params:any[]) {
+    this.doTest(function(result:any) {
       return Array.isArray(result);
     }, result, should, params);
   }
@@ -469,8 +515,8 @@ class TestBattery {
    *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
-  isBoolean(result, should, ...params) {
-    this.doTest(function(result) {
+  isBoolean(result:any, should:string, ...params:any[]) {
+    this.doTest(function(result:any) {
       return ( typeof(result) === 'boolean' || types.isBooleanObject(result) );
     }, result, should, params);
   }
@@ -486,8 +532,8 @@ class TestBattery {
    *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
-   isDirectory(result, should, ...params) {
-    this.doTest(function(result) {
+   isDirectory(result:any, should:string, ...params:any[]) {
+    this.doTest(function(result:any) {
       if (Array.isArray(result)) {
         result = path.join.apply(null, result);
       }
@@ -496,7 +542,7 @@ class TestBattery {
       }
       return fs.promises.stat(result)
         .then(stat => {
-          return stat.isDirectory(result);
+          return stat.isDirectory();
         }) 
         .catch(() => {
           return false;
@@ -513,8 +559,8 @@ class TestBattery {
    *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
-  isEmptyArray(result, should, ...params) {
-    this.doTest(function(result) {
+  isEmptyArray(result:any, should:string, ...params:any[]) {
+    this.doTest(function(result:any) {
       return Array.isArray(result) && result.length === 0;
     }, result, should, params);
   }
@@ -528,8 +574,8 @@ class TestBattery {
    *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
-   isEmptyObject(result, should, ...params) {
-    this.doTest(function(result) {
+   isEmptyObject(result:any, should:string, ...params:any[]) {
+    this.doTest(function(result:any) {
       return (typeof result === 'object') && (!Array.isArray(result)) &&
         ((Object.keys(result)).length === 0);
     }, result, should, params);
@@ -545,8 +591,8 @@ class TestBattery {
    *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
-  isEmptyString(result, should, ...params) {
-    this.doTest(function(result) {
+  isEmptyString(result:any, should:string, ...params:any[]) {
+    this.doTest(function(result:any) {
       return ( typeof(result) === 'string'  || types.isStringObject(result) )
         && result.length === 0;
     }, result, should, params);
@@ -564,8 +610,8 @@ class TestBattery {
    *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
-  isEqual(a, b, should, ...params) {
-    this.doTest(function(result) {
+  isEqual(a:any, b:any, should:string, ...params:any[]) {
+    this.doTest(function(result:any) {
       return result[0] == result[1];
     }, Promise.all([a, b]), should, params);
   }
@@ -581,8 +627,8 @@ class TestBattery {
    *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
-  isFalse(result, should, ...params) {
-    this.doTest(function(result) {
+  isFalse(result:any, should:string, ...params:any[]) {
+    this.doTest(function(result:any) {
       return (result === false ||
         ( result && result.valueOf && result.valueOf(result) === false) );
     }, result, should, params);
@@ -598,8 +644,8 @@ class TestBattery {
    *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
-  isFalsey(result, should, ...params) {
-    this.doTest(function(result) {
+  isFalsey(result:any, should:string, ...params:any[]) {
+    this.doTest(function(result:any) {
       return (!result);
     }, result, should, params);
   }
@@ -615,8 +661,8 @@ class TestBattery {
    *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
-  isFile(result, should, ...params) {
-    this.doTest(function(result) {
+  isFile(result:any, should:string, ...params:any[]) {
+    this.doTest(function(result:any) {
       if (Array.isArray(result)) {
         result = path.join.apply(null, result);
       }
@@ -642,8 +688,8 @@ class TestBattery {
    *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
-  isNil(result, should, ...params) {
-    this.doTest(function(result) {
+  isNil(result:any, should:string, ...params:any[]) {
+    this.doTest(function(result:any) {
       return ( result === null || result === undefined );
     }, result, should, params);
   }
@@ -657,8 +703,8 @@ class TestBattery {
    *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
-  isNull(result, should, ...params) {
-    this.doTest(function(result) {
+  isNull(result:any, should:string, ...params:any[]) {
+    this.doTest(function(result:any) {
       return result === null;
     }, result, should, params);
   }
@@ -675,8 +721,8 @@ class TestBattery {
    *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
-   isStrictlyEqual(a, b, should, ...params) {
-    this.doTest(function(result) {
+   isStrictlyEqual(a:any, b:any, should:string, ...params:any[]) {
+    this.doTest(function(result:any) {
       return result[0] === result[1];
     }, Promise.all([a, b]), should, params);
   }
@@ -691,8 +737,8 @@ class TestBattery {
    *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
-  isString(result, should, ...params) {
-    this.doTest(function(result) {
+  isString(result:any, should:string, ...params:any[]) {
+    this.doTest(function(result:any) {
       return typeof(result) === 'string' || types.isStringObject(result);
     }, result, should, params);
   }
@@ -708,8 +754,8 @@ class TestBattery {
    *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
-  isTrue(result, should, ...params) {
-    this.doTest(function(result) {
+  isTrue(result:any, should:string, ...params:any[]) {
+    this.doTest(function(result:any) {
       return (result === true ||
         ( result && result.valueOf && result.valueOf(result) === true) );
     }, result, should, params);
@@ -725,8 +771,8 @@ class TestBattery {
    *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
-  isTruthy(result, should, ...params) {
-    this.doTest(function(result) {
+  isTruthy(result:any, should:string, ...params:any[]) {
+    this.doTest(function(result:any) {
       return (!!result);
     }, result, should, params);
   }
@@ -740,8 +786,8 @@ class TestBattery {
    *  be filled in with `format`.
    * @param  {...any} [params] parameters for the error message
    */
-  isUndefined(result, should, ...params) {
-    this.doTest(function(result) {
+  isUndefined(result:any, should:string, ...params:any[]) {
+    this.doTest(function(result:any) {
       return result === undefined;
     }, result, should, params);
   }

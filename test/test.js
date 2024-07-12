@@ -1,7 +1,7 @@
 'use strict';
 
 import path from 'path';
-import TestBattery from '../TestBattery.js';
+import TestBattery from '../test-battery.js';
 
 // add to this array to focus on a specific test, or leave it empty to run all
 // tests. If this is not empty, the 'All tests run' test will fail.
@@ -116,7 +116,7 @@ describe('Simple Form', function() {
     test.isDirectory([process.cwd(), '.'], 'path array');
 
     let fails = new TestBattery();
-    fails.isDirectory([process.cwd(), 'TestBattery.jsxx'], 'regular file');
+    fails.isDirectory([process.cwd(), 'test-battery.jsxx'], 'regular file');
     fails.isDirectory([process.cwd(), 'hello'], 'non-existant directory');
     fails.isDirectory(12, 'not a string');
     
@@ -236,11 +236,11 @@ describe('Simple Form', function() {
 
   focus('file', function (done) {
     let test = new TestBattery();
-    test.isFile(path.join(process.cwd(), 'TestBattery.js'), 'path string');
-    test.isFile([process.cwd(), 'TestBattery.js'], 'path array');
+    test.isFile(path.join(process.cwd(), 'test-battery.js'), 'path string');
+    test.isFile([process.cwd(), 'test-battery.js'], 'path array');
 
     let fails = new TestBattery();
-    fails.isFile([process.cwd(), 'TestBattery.jsxx'], 'non-existant file');
+    fails.isFile([process.cwd(), 'test-battery.jsxx'], 'non-existant file');
     fails.isFile(process.cwd(), 'directory');
     fails.isFile(12, 'not a string');
     
@@ -380,8 +380,8 @@ describe('Constructed form', function() {
     test.test('path array').value([process.cwd(), 'test']).is.a.directory;
 
     let fails = new TestBattery();
-    fails.test('non-existant file').value([process.cwd(), 'TestBattery.jsxx']).is.a.directory;
-    fails.test('not a directory').value(path.join(process.cwd(), 'TestBattery.js')).is.a.directory;
+    fails.test('non-existant file').value([process.cwd(), 'test-battery.jsxx']).is.a.directory;
+    fails.test('not a directory').value(path.join(process.cwd(), 'test-battery.js')).is.a.directory;
     fails.test('not a string').value(12).is.a.directory;
     
     getResults(test, fails, done);
@@ -508,11 +508,11 @@ describe('Constructed form', function() {
 
   focus('file', function (done) {
     let test = new TestBattery();
-    test.test('path string').value(path.join(process.cwd(), 'TestBattery.js')).is.a.file;
-    test.test('path array').value([process.cwd(), 'TestBattery.js']).is.a.file;
+    test.test('path string').value(path.join(process.cwd(), 'test-battery.js')).is.a.file;
+    test.test('path array').value([process.cwd(), 'test-battery.js']).is.a.file;
 
     let fails = new TestBattery();
-    fails.test('non-existant file').value([process.cwd(), 'TestBattery.jsxx']).is.a.file;
+    fails.test('non-existant file').value([process.cwd(), 'test-battery.jsxx']).is.a.file;
     fails.test('not a regular file').value(process.cwd()).is.a.file;
     fails.test('not a string').value(12).is.a.file;
     
