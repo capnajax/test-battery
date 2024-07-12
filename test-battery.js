@@ -360,7 +360,7 @@ class TestBattery {
                 let result = {
                     errors: this.errors
                 };
-                this.refuseTests && (result.testsRefused.push(this.testsRefused));
+                this.refuseTests && (result.testsRefused = [...this.testsRefused]);
                 done && done(result);
                 return result;
             }
