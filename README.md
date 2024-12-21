@@ -1,6 +1,7 @@
 # test-battery
 
-Test engine for JavaScript that plays nicely with promises, intended for use with mochajs but plays nicely with any test framework.
+Test engine for JavaScript that plays nicely with promises, intended for use
+with mochajs but plays nicely with any test framework.
 
 ## Why the test battery
 
@@ -8,11 +9,13 @@ This is intended to replace `expect.js`, etc with a new concept.
 
 Key features:
 
-- Plays nicely with promises. If a value is a promise, it'll can await the resolution of the promise transparently.
-- Can await multiple promises at once, while still respecting a dependency chain. If one test depends on the results of previous tests, it can be forced to await the resolution of previous tests before continuing.
-- Does not throw exceptions on the first error. Instead, it captures as many errors as it can in a single run.
-
-This is very much a start right now, as I expect to add a lot of tests to this in the near future.
+- Plays nicely with promises. If a value is a promise, it'll can await the
+  resolution of the promise transparently.
+- Can `await` multiple promises at once, while still respecting a dependency
+  chain. If one test depends on the results of previous tests, it can be
+  forced to `await` the resolution of previous tests before continuing.
+- Does not throw exceptions on the first error. Instead, it captures as many
+  errors as it can in a single run.
 
 ## Installation
 
@@ -56,7 +59,7 @@ In [constructed form](#constructed-form) (preferred)
   }
 ```
 
-Or in [simple form](#simple-form)
+Or in [simple form](#simple-form) (exists for legacy reasons)
 
 ```javascript
   async function runTestBattery() {
@@ -118,6 +121,7 @@ describe('File tests', function() {
 ## Constructed Form
 
 The constructed form has four distinct clauses:
+
 1) Creating the test `battery.test('description')`
 1) Adding values `.value(v1).value(v2)`
 1) Verb (optional, default `is`) `.is.not`
@@ -175,5 +179,3 @@ battery.isFile(filename, 'The "%s" file should exist', filename);
 ```
 
 The first parameter is the test value (two parameters for `isEqual`), and the remaining parameters are for the description. Again, this nessge can be parameterized for [`format`](https://www.npmjs.com/package/format).
-
-

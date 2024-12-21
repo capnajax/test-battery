@@ -39,131 +39,126 @@ function inList(term, list, strict) {
     }
     return false;
 }
-const operators = (() => {
-    const ops = {
-        // operators can just be a function, or an object with `fn` and `minArgs` or
-        // `numArgs`
-        array: Array.isArray,
-        boolean: a => {
-            return !!(typeof (a) === 'boolean' ||
-                types.isBooleanObject(a));
-        },
-        directory: a => {
-            let dir = Array.isArray(a)
-                ? path.join.apply(null, a)
-                : a;
-            if (typeof (dir) !== 'string') {
-                return false;
+function op(name, fn) {
+    if (typeof fn === 'function') {
+        return { fn, numArgs: fn.length, name };
+    }
+    else if (fn.numArgs !== undefined && fn.minArgs === undefined) {
+        return { fn: fn.fn, numArgs: fn.fn.length, name: name };
+    }
+    else {
+        return fn;
+    }
+}
+const operators = {
+    array: op('array', Array.isArray),
+    boolean: op('boolean', a => {
+        return !!(typeof (a) === 'boolean' ||
+            types.isBooleanObject(a));
+    }),
+    directory: op('directory', a => {
+        let dir = Array.isArray(a)
+            ? path.join.apply(null, a)
+            : a;
+        if (typeof (dir) !== 'string') {
+            return false;
+        }
+        return fs.promises.stat(dir)
+            .then((stat) => {
+            return stat.isDirectory();
+        })
+            .catch(() => {
+            return false;
+        });
+    }),
+    empty: op('empty', a => {
+        let result = false;
+        if (Array.isArray(a)) {
+            result = (a.length === 0);
+        }
+        else if (typeof a === 'string') {
+            result = (a === '');
+        }
+        else if (typeof a === 'object' && a !== null) {
+            result = (Object.keys(a).length === 0);
+        }
+        // everything not an array, object, or string is false, including 
+        // `null` and `undefined` stays false
+        return result;
+    }),
+    equal: op('equal', {
+        fn: (a, ...b) => {
+            let result = true;
+            for (let i of b) {
+                if (a != i) {
+                    result = false;
+                    break;
+                }
             }
-            return fs.promises.stat(dir)
-                .then(stat => {
-                return stat.isDirectory();
-            })
-                .catch(() => {
-                return false;
-            });
-        },
-        empty: a => {
-            let result = false;
-            if (Array.isArray(a)) {
-                result = (a.length === 0);
-            }
-            else if (typeof a === 'string') {
-                result = (a === '');
-            }
-            else if (typeof a === 'object' && a !== null) {
-                result = (Object.keys(a).length === 0);
-            }
-            // everything not an array, object, or string is false, including 
-            // `null` and `undefined` stays false
             return result;
         },
-        equal: {
-            fn: (a, ...b) => {
-                let result = true;
-                for (let i of b) {
-                    if (a != i) {
-                        result = false;
-                        break;
-                    }
+        minArgs: 2
+    }),
+    false: op('false', a => {
+        return (a === false ||
+            (a && a.valueOf && a.valueOf(a) === false));
+    }),
+    falsey: op('falsey', a => !a),
+    fail: op('fail', () => false),
+    file: op('file', a => {
+        let file = Array.isArray(a)
+            ? path.join.apply(null, a)
+            : a;
+        if (typeof file !== 'string') {
+            return false;
+        }
+        return fs.promises.stat(file)
+            .then((stat) => {
+            return stat.isFile();
+        })
+            .catch(() => {
+            return false;
+        });
+    }),
+    in: op('in', {
+        fn: (a, ...b) => {
+            let result = inList(a, b, false);
+            return result;
+        },
+        minArgs: 1
+    }),
+    inStrict: op('inStrict', {
+        fn: (a, ...b) => {
+            let result = inList(a, b, true);
+            return result;
+        },
+        minArgs: 1
+    }),
+    nil: op('nil', a => {
+        return (a === null || a === undefined);
+    }),
+    null: op('null', a => a === null),
+    strictlyEqual: op('strictlyEqual', {
+        fn: (a, ...b) => {
+            let result = true;
+            for (let i of b) {
+                if (a !== i) {
+                    result = false;
+                    break;
                 }
-                return result;
-            },
-            minArgs: 2
-        },
-        false: a => {
-            return (a === false ||
-                (a && a.valueOf && a.valueOf(a) === false));
-        },
-        falsey: a => !a,
-        fail: () => false,
-        file: a => {
-            let file = Array.isArray(a)
-                ? path.join.apply(null, a)
-                : a;
-            if (typeof file !== 'string') {
-                return false;
             }
-            return fs.promises.stat(file)
-                .then(stat => {
-                return stat.isFile();
-            })
-                .catch(() => {
-                return false;
-            });
+            return result;
         },
-        in: {
-            fn: (a, ...b) => {
-                let result = inList(a, b, false);
-                return result;
-            },
-            minArgs: 1
-        },
-        inStrict: {
-            fn: (a, ...b) => {
-                let result = inList(a, b, true);
-                return result;
-            },
-            minArgs: 1
-        },
-        nil: a => {
-            return (a === null || a === undefined);
-        },
-        null: a => a === null,
-        strictlyEqual: {
-            fn: (a, ...b) => {
-                let result = true;
-                for (let i of b) {
-                    if (a !== i) {
-                        result = false;
-                        break;
-                    }
-                }
-                return result;
-            },
-            minArgs: 2
-        },
-        isString: a => (typeof a === 'string' || types.isStringObject(a)),
-        true: a => {
-            return (a === true ||
-                (a && a.valueOf && a.valueOf(a) === true));
-        },
-        truthy: a => !!a,
-        undefined: a => a === undefined
-    };
-    for (let k of Object.keys(ops)) {
-        let o = ops[k];
-        if (typeof o === 'function') {
-            o = { fn: o, numArgs: o.length };
-            ops[k] = o;
-        }
-        else if (o.numArgs !== undefined && o.minArgs === undefined) {
-            o.numArgs = o.fn.length;
-        }
-        o.name = k;
-    }
-    return ops;
-})();
+        minArgs: 2
+    }),
+    isString: op('isString', a => (typeof a === 'string' || types.isStringObject(a))),
+    true: op('true', a => {
+        return (a === true ||
+            (a && a.valueOf && a.valueOf(a) === true));
+    }),
+    truthy: op('truthy', a => !!a),
+    undefined: op('undefined', a => a === undefined)
+};
 class Test {
     done;
     message;
@@ -180,50 +175,225 @@ class Test {
         this.expectedOperands = 0;
         this.values = [];
         this.negative = false;
-        this.operator;
         this.isComplete = false;
         this.options = options;
-        for (let k of Object.keys(operators)) {
-            Object.defineProperty(this, k, (() => {
-                return {
-                    get: () => {
-                        this.#testIfComplete();
-                        let op = operators[k];
-                        let tvl = this.values.length;
-                        this.operator = op;
-                        if (op?.numArgs !== undefined) {
-                            if (tvl === op.numArgs) {
-                                return this.#complete();
-                            }
-                            else if (tvl < op.numArgs) {
-                                this.expectedOperands = op.numArgs - tvl;
-                                return this;
-                            }
-                            else {
-                                throw new Error(`too many values for operator \"${k}\"`);
-                            }
-                        }
-                        else if (op?.minArgs !== undefined) {
-                            if (tvl >= op.minArgs) {
-                                return this.#complete();
-                            }
-                            else {
-                                this.expectedOperands = op.numArgs - tvl;
-                                return this;
-                            }
-                        }
-                    }
-                };
-            })());
+    }
+    /* ** ** **
+      Constructed-form operators start here. These are the operators that are
+      defined as properties of the test object. They are defined as getters, so
+      they can be called as properties of the test object.
+     */
+    get array() {
+        this.#verifyOperator(() => {
+            return Array.isArray(this.values[0].v);
+        }, 1);
+        return this;
+    }
+    get boolean() {
+        this.#verifyOperator(() => {
+            return !!(typeof (this.values[0].v) === 'boolean' ||
+                types.isBooleanObject(this.values[0].v));
+        }, 1);
+        return this;
+    }
+    get directory() {
+        this.#verifyOperator(async () => {
+            let dir = Array.isArray(this.values[0].v)
+                ? path.join.apply(null, this.values[0].v)
+                : this.values[0].v;
+            if (typeof (dir) !== 'string') {
+                return Promise.resolve(false);
+            }
+            try {
+                const stat = await fs.promises.stat(dir);
+                return stat.isDirectory();
+            }
+            catch {
+                return false;
+            }
+        }, 1);
+        return this;
+    }
+    get empty() {
+        this.#verifyOperator(async () => {
+            let result = false;
+            let a = this.values[0].v;
+            if (Array.isArray(a)) {
+                result = (a.length === 0);
+            }
+            else if (typeof a === 'string') {
+                result = (a === '');
+            }
+            else if (typeof a === 'object' && a !== null) {
+                result = (Object.keys(a).length === 0);
+            }
+            // everything not an array, object, or string is false, including 
+            // `null` and `undefined` stays false
+            return result;
+        }, 1);
+        return this;
+    }
+    get equal() {
+        this.#verifyOperator(() => {
+            let result = true;
+            let a = this.values[0].v;
+            for (let i of this.values.slice(1).map(v => v.v)) {
+                if (a != i) {
+                    result = false;
+                    break;
+                }
+            }
+            return result;
+        }, -2);
+        return this;
+    }
+    get false() {
+        this.#verifyOperator(() => {
+            let a = this.values[0].v;
+            return (a === false ||
+                (a && a.valueOf && a.valueOf(a) === false));
+        }, 1);
+        return this;
+    }
+    get falsey() {
+        this.#verifyOperator(() => {
+            return !this.values[0].v;
+        }, 1);
+        return this;
+    }
+    get fail() {
+        this.#verifyOperator(() => {
+            return false;
+        }, 0);
+        return this;
+    }
+    get file() {
+        this.#verifyOperator(() => {
+            let file = Array.isArray(this.values[0].v)
+                ? path.join.apply(null, this.values[0].v)
+                : this.values[0].v;
+            if (typeof file !== 'string') {
+                return false;
+            }
+            return fs.promises.stat(file)
+                .then((stat) => {
+                return stat.isFile();
+            })
+                .catch(() => {
+                return false;
+            });
+        }, 1);
+        return this;
+    }
+    get in() {
+        this.#verifyOperator(() => {
+            let result = inList(this.values[0].v, this.values.slice(1).map(v => v.v), false);
+            return result;
+        }, -1);
+        return this;
+    }
+    get inStrict() {
+        this.#verifyOperator(() => {
+            let result = inList(this.values[0].v, this.values.slice(1).map(v => v.v), true);
+            return result;
+        }, -1);
+        return this;
+    }
+    get nil() {
+        this.#verifyOperator(() => {
+            return (this.values[0].v === null || this.values[0].v === undefined);
+        }, 1);
+        return this;
+    }
+    get null() {
+        this.#verifyOperator(() => {
+            return this.values[0].v === null;
+        }, 1);
+        return this;
+    }
+    get strictlyEqual() {
+        this.#verifyOperator(() => {
+            let result = true;
+            for (let i of this.values.slice(1).map(v => v.v)) {
+                if (this.values[0].v !== i) {
+                    result = false;
+                    break;
+                }
+            }
+            return result;
+        }, -2);
+        return this;
+    }
+    get string() {
+        this.#verifyOperator(() => {
+            return (typeof this.values[0].v === 'string' || types.isStringObject(this.values[0].v));
+        }, 1);
+        return this;
+    }
+    get true() {
+        this.#verifyOperator(() => {
+            return (this.values[0].v === true ||
+                (this.values[0].v && this.values[0].v.valueOf &&
+                    this.values[0].v.valueOf(this.values[0].v) === true));
+        }, 1);
+        return this;
+    }
+    get truthy() {
+        this.#verifyOperator(() => {
+            return !!this.values[0].v;
+        }, 1);
+        return this;
+    }
+    get undefined() {
+        this.#verifyOperator(() => {
+            return this.values[0].v === undefined;
+        }, 1);
+        return this;
+    }
+    /*
+      End of constructed-form operators
+     ** ** */
+    /**
+     * Verifies the operator and the number of values it has. If the number of
+     * values is correct, the test can complete, if not, it can wait for more
+     * values to be added.
+     * @param operatorName
+     * @param numArgs
+     * @throws Error if the test has already completed
+     */
+    #verifyOperator(operator, numArgs) {
+        this.#testIfComplete();
+        this.operator = operator;
+        if (numArgs >= 0) {
+            if (this.values.length === numArgs) {
+                this.#complete();
+            }
+            else {
+                this.expectedOperands = numArgs - this.values.length;
+            }
+        }
+        else {
+            if (this.values.length >= (-numArgs)) {
+                this.#complete();
+            }
+            else {
+                this.expectedOperands = (-numArgs) - this.values.length;
+            }
         }
     }
     #complete() {
         this.isComplete = true;
         return Promise.all(this.values)
             .then(async (resolvedValues) => {
-            let result = await this.operator
-                // @ts-ignore 
-                .fn.apply(this, resolvedValues.map(v => v.v));
+            let result = true;
+            if (this.operator === undefined) {
+                throw new Error('Operator not identified for test');
+            }
+            else {
+                return this.operator();
+            }
+        })
+            .then((result) => {
             if (this.negative) {
                 result = !result;
             }
@@ -498,7 +668,7 @@ class TestBattery {
                 return false;
             }
             return fs.promises.stat(result)
-                .then(stat => {
+                .then((stat) => {
                 return stat.isDirectory();
             })
                 .catch(() => {
@@ -620,7 +790,7 @@ class TestBattery {
                 return false;
             }
             return fs.promises.stat(result)
-                .then(stat => {
+                .then((stat) => {
                 return stat.isFile();
             })
                 .catch(() => {
