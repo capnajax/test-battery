@@ -15,7 +15,8 @@ Key features:
   chain. If one test depends on the results of previous tests, it can be
   forced to `await` the resolution of previous tests before continuing.
 - Does not throw exceptions on the first error. Instead, it captures as many
-  errors as it can in a single run.
+  errors as it can in a single run until all tests are attempted or a test
+  cannot continue due to errors.
 
 ## Installation
 
@@ -59,7 +60,7 @@ In [constructed form](#constructed-form) (preferred)
   }
 ```
 
-Or in [simple form](#simple-form) (exists for legacy reasons)
+Or in [simple form](#simple-form) (_deprecated_)
 
 ```javascript
   async function runTestBattery() {
@@ -87,31 +88,26 @@ Or in [simple form](#simple-form) (exists for legacy reasons)
   }
 ```
 
-Using with `mocha`:
+Using with NodeJS `mocha`:
 
 ```javascript
 describe('File tests', function() {
 
   it('Files exist', function(done) {
-    const filenames = [
-      'foo/bar.yaml',
-      'foo/bar.js',
-      'foo/bar.csv',
-      'foo/bar.txt'
-    ];
 
-    let test = new TestBattery();
+    let battery = new TestBattery();
 
     // test each of the files
-    for (let filename of filenames) {
-      // the error message is parameterized
-      test.test('%s should be a file', filename)
-          .value([process.cwd(), '..', filename])
-          .is.a.file;
-    }
+    battery.test('files exist as regular files')
+      .value('foo/bar.yaml')
+      .value('foo/bar.js')
+      .value('foo/bar.csv')
+      .value('foo/bar.txt')
+      .is.a.file;
 
-    // note we pass mocha's `done` to `tests.done` to report all errors in
-    // this test.
+
+    // note we pass the `it` method's `done` to `tests.done` to report all
+    // errors in this test.
     test.done(done);
   });
 });
@@ -179,3 +175,68 @@ battery.isFile(filename, 'The "%s" file should exist', filename);
 ```
 
 The first parameter is the test value (two parameters for `isEqual`), and the remaining parameters are for the description. Again, this nessge can be parameterized for [`format`](https://www.npmjs.com/package/format).
+
+## Available Tests
+
+The following test assertions are available in `test-battery`:
+
+- `.array` - all values are arrays
+- `.boolean` - all values are `boolean`
+- `.directory` - all values are paths of directories
+- `.empty` - all values are empty objects, array, or string. Everything not an array, string, or object is `false`, including `null` and `undefined`.
+- `.equal` - all values are equal by _loose_ equality, that is, type coercion is permitted. Use `strictlyEqual` to test for _strict_ equality.
+- `.false` - all values are strictly `false` (i.e. `!!value == false` )
+- `.falsey` - all values are _falsey_
+- `.fail` - fails regardless of values provided
+- `.file` - all values are paths of regular files
+- `.in` - the first value is an array, and all the remaining values are _loosely_ equal to members of that array
+- `.inStrict` - this first value is an array, and all the remaining values are _strictly_ equal to members of that array
+- `.nil` - all values are either `null` or `undefined`
+- `.null` - all values are `null`
+- `.strictlyEqual` - all values are _strictly_ equal (i.e. equal by `===`)
+- `.string` - all values are strings
+- `.true` - all values are strictly `true`
+- `.truthy` - all values are _truthy_ (i.e. `!!value == true`)
+- `.undefined` - all values are `undefined`
+
+You can use these as the final clause in a constructed test, for example:
+
+```javascript
+battery.test('should be a string')
+  .value('hello')
+  .is.string;
+
+battery.test('should not be null')
+  .value(someValue)
+  .is.not.null;
+
+battery.test('should match regex')
+  .value('foobar')
+  .match(/^foo/);
+```
+
+For the simple form, use the corresponding method:
+
+```javascript
+battery.isString('hello', 'should be a string');
+battery.isFile('path/to/file', 'should be a file');
+battery.isEqual(1, 1, 'should be equal');
+```
+
+## Changes for Version 3
+
+- Support for object forms of `Number`, `Boolean`, etc is removed. They are no longer treated as equivalent to their primitive forms `number`, `boolean`, etc.
+- Some tests that only permitted one value now permit multiple values, and the tests return true if the test is true for `all` the values.
+- The test assertion always ends a test. In Version 2, the form:
+
+    ```typescript
+    test('xxx').value(1).equal.value(2)
+    ```
+
+    was acceptable. This is no longer supported. All the values must go before the test.
+
+    ```typescript
+    test('yyy').value(1).value(2).equal
+    ```
+
+- Simple form and Constructed form are no longer maintained at parity. New tests will only be implemented in constructed form.

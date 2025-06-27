@@ -3,6 +3,34 @@ import { format } from 'util';
 import fs from 'fs';
 import path from 'path';
 import { types } from 'util';
+;
+export function isTestErrors(value) {
+    if (value.testsRefused !== undefined) {
+        if (!Array.isArray(value.testsRefused)) {
+            return false;
+        }
+        if (value.testsRefused.some((v) => typeof v !== 'string')) {
+            return false;
+        }
+    }
+    if (value.errors !== undefined) {
+        if (!Array.isArray(value.errors)) {
+            return false;
+        }
+        if (value.errors.some((v) => typeof v !== 'string')) {
+            return false;
+        }
+    }
+    // test if there are any other properties that are not `testsRefused`,
+    // `errors`, or `exception`
+    const validKeys = ['testsRefused', 'errors', 'exception'];
+    const keys = Object.keys(value);
+    if (keys.some((k) => !validKeys.includes(k))) {
+        return false;
+    }
+    return true;
+}
+;
 function get(object, path, defaultValue) {
     let result = object;
     for (let key of path) {
@@ -39,144 +67,27 @@ function inList(term, list, strict) {
     }
     return false;
 }
-function op(name, fn) {
-    if (typeof fn === 'function') {
-        return { fn, numArgs: fn.length, name };
-    }
-    else if (fn.numArgs !== undefined && fn.minArgs === undefined) {
-        return { fn: fn.fn, numArgs: fn.fn.length, name: name };
-    }
-    else {
-        return fn;
-    }
-}
-const operators = {
-    array: op('array', Array.isArray),
-    boolean: op('boolean', a => {
-        return !!(typeof (a) === 'boolean' ||
-            types.isBooleanObject(a));
-    }),
-    directory: op('directory', a => {
-        let dir = Array.isArray(a)
-            ? path.join.apply(null, a)
-            : a;
-        if (typeof (dir) !== 'string') {
-            return false;
-        }
-        return fs.promises.stat(dir)
-            .then((stat) => {
-            return stat.isDirectory();
-        })
-            .catch(() => {
-            return false;
-        });
-    }),
-    empty: op('empty', a => {
-        let result = false;
-        if (Array.isArray(a)) {
-            result = (a.length === 0);
-        }
-        else if (typeof a === 'string') {
-            result = (a === '');
-        }
-        else if (typeof a === 'object' && a !== null) {
-            result = (Object.keys(a).length === 0);
-        }
-        // everything not an array, object, or string is false, including 
-        // `null` and `undefined` stays false
-        return result;
-    }),
-    equal: op('equal', {
-        fn: (a, ...b) => {
-            let result = true;
-            for (let i of b) {
-                if (a != i) {
-                    result = false;
-                    break;
-                }
-            }
-            return result;
-        },
-        minArgs: 2
-    }),
-    false: op('false', a => {
-        return (a === false ||
-            (a && a.valueOf && a.valueOf(a) === false));
-    }),
-    falsey: op('falsey', a => !a),
-    fail: op('fail', () => false),
-    file: op('file', a => {
-        let file = Array.isArray(a)
-            ? path.join.apply(null, a)
-            : a;
-        if (typeof file !== 'string') {
-            return false;
-        }
-        return fs.promises.stat(file)
-            .then((stat) => {
-            return stat.isFile();
-        })
-            .catch(() => {
-            return false;
-        });
-    }),
-    in: op('in', {
-        fn: (a, ...b) => {
-            let result = inList(a, b, false);
-            return result;
-        },
-        minArgs: 1
-    }),
-    inStrict: op('inStrict', {
-        fn: (a, ...b) => {
-            let result = inList(a, b, true);
-            return result;
-        },
-        minArgs: 1
-    }),
-    nil: op('nil', a => {
-        return (a === null || a === undefined);
-    }),
-    null: op('null', a => a === null),
-    strictlyEqual: op('strictlyEqual', {
-        fn: (a, ...b) => {
-            let result = true;
-            for (let i of b) {
-                if (a !== i) {
-                    result = false;
-                    break;
-                }
-            }
-            return result;
-        },
-        minArgs: 2
-    }),
-    isString: op('isString', a => (typeof a === 'string' || types.isStringObject(a))),
-    true: op('true', a => {
-        return (a === true ||
-            (a && a.valueOf && a.valueOf(a) === true));
-    }),
-    truthy: op('truthy', a => !!a),
-    undefined: op('undefined', a => a === undefined)
-};
 class Test {
     done;
     message;
-    expectedOperands;
     values;
     negative;
     operator;
     isComplete;
     options;
-    constructor(done, message, options) {
+    constructor(done, message, options = {}) {
         this.done = done;
         this.message = message;
         // if defined, test will complete when this number reaches zero
-        this.expectedOperands = 0;
         this.values = [];
         this.negative = false;
         this.isComplete = false;
-        this.options = options;
+        const testOptions = {
+            dummy: options.dummy || false,
+            expectedToPass: (options.expectedToPass === false) ? false : true,
+            allowEmptyValueSet: (options.allowEmptyValueSet === false) ? false : true
+        };
+        this.options = testOptions;
     }
     /* ** ** **
       Constructed-form operators start here. These are the operators that are
@@ -184,170 +95,178 @@ class Test {
       they can be called as properties of the test object.
      */
     get array() {
-        this.#verifyOperator(() => {
-            return Array.isArray(this.values[0].v);
-        }, 1);
+        this.#verifyOperator(values => {
+            return values.every((v) => Array.isArray(v.v));
+        }, 0);
         return this;
     }
     get boolean() {
-        this.#verifyOperator(() => {
-            return !!(typeof (this.values[0].v) === 'boolean' ||
-                types.isBooleanObject(this.values[0].v));
-        }, 1);
+        this.#verifyOperator(values => {
+            return values.every(v => typeof v.v === 'boolean');
+        }, 0);
         return this;
     }
-    get directory() {
-        this.#verifyOperator(async () => {
-            let dir = Array.isArray(this.values[0].v)
-                ? path.join.apply(null, this.values[0].v)
-                : this.values[0].v;
-            if (typeof (dir) !== 'string') {
-                return Promise.resolve(false);
-            }
-            try {
-                const stat = await fs.promises.stat(dir);
-                return stat.isDirectory();
-            }
-            catch {
+    #fileTest(paths, test) {
+        const pathQueue = [...paths.map(p => {
+                return Array.isArray(p) ? path.join(...p) : p;
+            })];
+        let maxInFlight = 10;
+        let numTestsInFlight = 0;
+        const testPromises = [];
+        let isCanceled = false;
+        return new Promise((resolve, reject) => {
+            const addToQueue = () => {
+                if (isCanceled) {
+                    return;
+                }
+                else if (pathQueue.length === 0 && numTestsInFlight === 0) {
+                    Promise.all(testPromises).then((ba) => {
+                        resolve(ba.every(b => b));
+                    });
+                }
+                else {
+                    while (numTestsInFlight < maxInFlight && pathQueue.length) {
+                        testPromises.push(test(pathQueue.shift()).then((result) => {
+                            addToQueue();
+                            return result;
+                        }));
+                    }
+                }
+            };
+            addToQueue();
+        });
+    }
+    async fileStatTest(paths, test) {
+        return this.#fileTest(paths, async (pathname) => {
+            if (typeof pathname !== 'string') {
                 return false;
             }
-        }, 1);
+            try {
+                const stat = await fs.promises.stat(pathname);
+                return test(stat);
+            }
+            catch (error) {
+                if (error.code === 'ENOENT') {
+                    return false; // file or directory does not exist
+                }
+                else {
+                    throw error; // rethrow other errors
+                }
+            }
+        });
+    }
+    get directory() {
+        this.#verifyOperator(values => {
+            return this.fileStatTest(values.map(v => v.v), stat => stat.isDirectory());
+        }, 0);
         return this;
     }
     get empty() {
-        this.#verifyOperator(async () => {
-            let result = false;
-            let a = this.values[0].v;
-            if (Array.isArray(a)) {
-                result = (a.length === 0);
-            }
-            else if (typeof a === 'string') {
-                result = (a === '');
-            }
-            else if (typeof a === 'object' && a !== null) {
-                result = (Object.keys(a).length === 0);
-            }
-            // everything not an array, object, or string is false, including 
-            // `null` and `undefined` stays false
-            return result;
-        }, 1);
+        this.#verifyOperator(values => {
+            return values.every(v => {
+                let result = false;
+                if (Array.isArray(v.v)) {
+                    result = (v.v.length === 0);
+                }
+                else if (typeof v.v === 'string') {
+                    result = (v.v === '');
+                }
+                else if (typeof v.v === 'object' && v.v !== null) {
+                    result = (Object.keys(v.v).length === 0);
+                }
+                // everything not an array, object, or string is false, including
+                // `null` and `undefined` stays false
+                return result;
+            });
+        }, 0);
         return this;
     }
     get equal() {
-        this.#verifyOperator(() => {
-            let result = true;
-            let a = this.values[0].v;
-            for (let i of this.values.slice(1).map(v => v.v)) {
-                if (a != i) {
-                    result = false;
-                    break;
-                }
-            }
-            return result;
-        }, -2);
+        this.#verifyOperator(values => {
+            let a = values[0].v;
+            return values.slice(1).every(v => a == v.v);
+        }, 0, 2);
         return this;
     }
     get false() {
-        this.#verifyOperator(() => {
-            let a = this.values[0].v;
-            return (a === false ||
-                (a && a.valueOf && a.valueOf(a) === false));
+        this.#verifyOperator(values => {
+            return values.every(v => v.v === false);
         }, 1);
         return this;
     }
     get falsey() {
-        this.#verifyOperator(() => {
-            return !this.values[0].v;
+        this.#verifyOperator(values => {
+            return values.every(v => !(v.v));
         }, 1);
         return this;
     }
     get fail() {
         this.#verifyOperator(() => {
             return false;
-        }, 0);
+        });
         return this;
     }
     get file() {
-        this.#verifyOperator(() => {
-            let file = Array.isArray(this.values[0].v)
-                ? path.join.apply(null, this.values[0].v)
-                : this.values[0].v;
-            if (typeof file !== 'string') {
-                return false;
-            }
-            return fs.promises.stat(file)
-                .then((stat) => {
-                return stat.isFile();
-            })
-                .catch(() => {
-                return false;
-            });
-        }, 1);
+        this.#verifyOperator(values => {
+            return this.fileStatTest(values.map(v => v.v), stat => stat.isFile());
+        }, 0);
         return this;
     }
     get in() {
-        this.#verifyOperator(() => {
-            let result = inList(this.values[0].v, this.values.slice(1).map(v => v.v), false);
+        this.#verifyOperator(values => {
+            let result = inList(values[0].v, values.slice(1).map(v => v.v), false);
             return result;
-        }, -1);
+        }, 2);
         return this;
     }
     get inStrict() {
-        this.#verifyOperator(() => {
-            let result = inList(this.values[0].v, this.values.slice(1).map(v => v.v), true);
+        this.#verifyOperator(values => {
+            let result = inList(values[0].v, values.slice(1).map(v => v.v), true);
             return result;
-        }, -1);
+        }, 2);
         return this;
     }
     get nil() {
-        this.#verifyOperator(() => {
-            return (this.values[0].v === null || this.values[0].v === undefined);
-        }, 1);
+        this.#verifyOperator(values => {
+            return values.filter(v => v.v !== null && v.v !== undefined).length === 0;
+        }, 0);
         return this;
     }
     get null() {
-        this.#verifyOperator(() => {
-            return this.values[0].v === null;
-        }, 1);
+        this.#verifyOperator(values => {
+            return values.filter(v => v.v !== null).length === 0;
+        }, 0);
         return this;
     }
     get strictlyEqual() {
-        this.#verifyOperator(() => {
-            let result = true;
-            for (let i of this.values.slice(1).map(v => v.v)) {
-                if (this.values[0].v !== i) {
-                    result = false;
-                    break;
-                }
-            }
-            return result;
-        }, -2);
+        this.#verifyOperator(values => {
+            let a = values[0].v;
+            return values.slice(1).every(v => a === v.v);
+        }, 0, 2);
         return this;
     }
     get string() {
-        this.#verifyOperator(() => {
-            return (typeof this.values[0].v === 'string' || types.isStringObject(this.values[0].v));
-        }, 1);
+        this.#verifyOperator(values => {
+            return values.every(v => typeof v.v === 'string');
+        }, 0);
         return this;
     }
     get true() {
-        this.#verifyOperator(() => {
-            return (this.values[0].v === true ||
-                (this.values[0].v && this.values[0].v.valueOf &&
-                    this.values[0].v.valueOf(this.values[0].v) === true));
-        }, 1);
+        this.#verifyOperator(values => {
+            return values.every(v => v.v === true);
+        }, 0);
         return this;
     }
     get truthy() {
-        this.#verifyOperator(() => {
-            return !!this.values[0].v;
-        }, 1);
+        this.#verifyOperator(values => {
+            return values.every(v => !!v.v);
+        }, 0);
         return this;
     }
     get undefined() {
-        this.#verifyOperator(() => {
-            return this.values[0].v === undefined;
-        }, 1);
+        this.#verifyOperator(values => {
+            return values.filter(v => v.v !== undefined).length === 0;
+        }, 0);
         return this;
     }
     /*
@@ -357,55 +276,96 @@ class Test {
      * Verifies the operator and the number of values it has. If the number of
      * values is correct, the test can complete, if not, it can wait for more
      * values to be added.
-     * @param operatorName
-     * @param numArgs
-     * @throws Error if the test has already completed
+     * @param operator The operator to verify. This function takes all the
+     *  values that have been added to the test so far and returns either a
+     *  `boolean` or a `Promise` that resolves to a `boolean`.
+     * @param numArgs The minimum number of values the operator expects. If the
+     *  operator doesn't expect any values at all, this should be `null`. If the
+     *  operator expects an exact number of values, use a negative number.
+     *  Example: `2` means minimum of 2 values, `-2` means exactly 2 values, 0
+     *  means any number of values is allowed, and `null` means that
+     *  no values are permitted. Default it `null`.
+     * @param numArgsStrict when allowEmptyValueSet is `false`, this is the
+     *  minimum number of values that the operator expects to be present in the
+     *  test. Ignored if `numArgs` is negative or `null`. Default is `1`, which
+     *  means at least one value is expected.
+     * @throws Error if the test has already completed or if the number of values
+     *  is not correct for the operator.
      */
-    #verifyOperator(operator, numArgs) {
+    #verifyOperator(operator, numArgs = null, numArgsStrict = 1) {
         this.#testIfComplete();
         this.operator = operator;
-        if (numArgs >= 0) {
-            if (this.values.length === numArgs) {
-                this.#complete();
+        if (this.message === 'unpermitted vacuously true') {
+            if (numArgs !== null) {
+                if (this.options.allowEmptyValueSet === false) {
+                    if (this.values.length < numArgsStrict) {
+                        this.#complete(false);
+                        return;
+                    }
+                }
+            }
+        }
+        // if allowEmptyValueSet is false, we need to ensure that
+        // there are at least `numArgsStrict` values in the test
+        if (numArgs !== null) {
+            if (this.options.allowEmptyValueSet === false) {
+                if (this.values.length < numArgsStrict) {
+                    this.#complete(false);
+                }
+            }
+        }
+        if (numArgs === null || numArgs === undefined) {
+            if (this.values.length > 0) {
+                throw new Error(`Test "${this.message}" does not expect any values`);
+            }
+        }
+        else if (numArgs >= 0) {
+            if (this.values.length < numArgs) {
+                throw new Error(`Test "${this.message}" expects at least ` +
+                    `${numArgs} values, got ${this.values.length}`);
+            }
+        }
+        else if (numArgs < 0) {
+            if (this.values.length !== (-numArgs)) {
+                throw new Error(`Test "${this.message}" expects exactly ` +
+                    `${-numArgs} values, got ${this.values.length}`);
+            }
+        }
+        this.#complete();
+    }
+    async #complete(predeterminedResult = null) {
+        if (predeterminedResult !== null) {
+            if (this.options?.expectedToPass !== this.negative) {
+                predeterminedResult = !predeterminedResult;
+            }
+            if (!!predeterminedResult == !!this.options?.expectedToPass) {
+                this.done();
             }
             else {
-                this.expectedOperands = numArgs - this.values.length;
+                this.done(this.message);
             }
+            return;
+        }
+        this.isComplete = true;
+        const resolvedValues = await Promise.all(this.values);
+        let result;
+        if (this.operator === undefined) {
+            throw new Error('Operator not identified for test');
         }
         else {
-            if (this.values.length >= (-numArgs)) {
-                this.#complete();
+            result = await this.operator(resolvedValues);
+        }
+        if (this.negative) {
+            result = !result;
+        }
+        if (this.done) {
+            if (!result === this.options.expectedToPass) {
+                this.done(this.message);
             }
             else {
-                this.expectedOperands = (-numArgs) - this.values.length;
+                this.done();
             }
         }
-    }
-    #complete() {
-        this.isComplete = true;
-        return Promise.all(this.values)
-            .then(async (resolvedValues) => {
-            let result = true;
-            if (this.operator === undefined) {
-                throw new Error('Operator not identified for test');
-            }
-            else {
-                return this.operator();
-            }
-        })
-            .then((result) => {
-            if (this.negative) {
-                result = !result;
-            }
-            if (this.done) {
-                if (!result) {
-                    this.done(this.message);
-                }
-                else {
-                    this.done();
-                }
-            }
-        });
     }
     #testIfComplete() {
         if (this.isComplete) {
@@ -442,7 +402,7 @@ class Test {
     }
     get not() {
         this.#testIfComplete();
-        this.negative = true;
+        this.negative = !this.negative;
         return this;
     }
     value(v) {
@@ -453,36 +413,69 @@ class Test {
         else {
             this.values.push({ v });
         }
-        if (this.expectedOperands !== null && this.expectedOperands !== undefined) {
-            this.expectedOperands--;
-            if (this.expectedOperands === 0) {
-                this.#complete();
-            }
-        }
         return this;
     }
     v(v) {
         return this.value(v);
     }
 }
-class TestBattery {
-    name;
-    errors;
-    promises;
-    testsCompleted;
-    refuseTests;
-    testsRefused;
-    constructor(name) {
-        this.name = name;
-        this.errors = [];
-        this.promises = [];
-        this.testsCompleted = 0;
-        this.refuseTests = false;
-        this.testsRefused = [];
+export class TestBattery {
+    #name;
+    #errors;
+    #promises;
+    #testsCompleted;
+    #refuseTests;
+    #testsRefused;
+    #expectedToPass;
+    #allowDeprecated;
+    #allowEmptyValueSet;
+    constructor(name, options) {
+        const falseIf = (v) => {
+            return v === false ? false : true;
+        };
+        this.#name = name;
+        this.#errors = [];
+        this.#promises = [];
+        this.#testsCompleted = 0;
+        this.#refuseTests = false;
+        this.#testsRefused = [];
+        this.#expectedToPass = (options?.expectedToPass === false) ? false : true;
+        this.#allowDeprecated = (options?.allowDeprecated === false) ? false : true;
+        this.#expectedToPass = falseIf(options?.expectedToPass);
+        this.#allowDeprecated = falseIf(options?.allowDeprecated);
+        this.#allowEmptyValueSet = falseIf(options?.allowEmptyValueSet);
+    }
+    get name() { return this.#name; }
+    set name(name) { this.#name = name; }
+    get errors() { return this.#errors; }
+    set errors(errors) { this.#errors = errors; }
+    get promises() { return this.#promises; }
+    set promises(promises) {
+        this.#promises = promises;
+    }
+    get testsCompleted() { return this.#testsCompleted; }
+    set testsCompleted(testsCompleted) {
+        this.#testsCompleted = testsCompleted;
+    }
+    get refuseTests() { return this.#refuseTests; }
+    set refuseTests(refuseTests) { this.#refuseTests = refuseTests; }
+    get testsRefused() { return this.#testsRefused; }
+    set testsRefused(testsRefused) {
+        this.#testsRefused = testsRefused;
+    }
+    get expectedToPass() { return this.#expectedToPass; }
+    // no setter for expectedToPass, it's set in the constructor
+    #allowDeprecatedMethods() {
+        if (false === this.#allowDeprecated) {
+            throw new Error('Deprecated TestBattery methods are disabled');
+        }
     }
     test(should, ...params) {
         let message = format.apply(null, [should].concat(params || []));
-        let testOptions = { dummy: false };
+        let testOptions = {
+            dummy: false,
+            allowEmptyValueSet: this.#allowEmptyValueSet
+        };
         let testPromiseResolve;
         let testPromiseReject;
         this.promises.push(new Promise((resolve, reject) => {
@@ -492,6 +485,9 @@ class TestBattery {
         if (this.refuseTests) {
             this.testsRefused.push(message);
             testOptions.dummy = true;
+        }
+        if (this.expectedToPass === false) {
+            testOptions.expectedToPass = false;
         }
         let result = new Test((error) => {
             if (error) {
@@ -516,28 +512,36 @@ class TestBattery {
     }
     /**
      * @method done
-     * Reports the result of the test battery be calling the provided `done`
+     * Reports the result of the test battery by calling the provided `done`
      * function with the results. If there are errors or tests have been refused,
      * it'll call the `done` function with an object that lists the errors and
      * refused tests. If there are no errors or refused tests, it calls done
-     * withou any parameters;
-     * @param {*} done
+     * without any parameters;
+     * @param done
      */
     done(done) {
-        return Promise.allSettled(this.promises)
-            .then(() => {
+        const buildErrorsObject = () => {
             if (this.errors.length || this.testsRefused.length) {
                 let result = {
                     errors: this.errors
                 };
-                this.refuseTests && (result.testsRefused = [...this.testsRefused]);
-                done && done(result);
+                if (this.refuseTests) {
+                    result.testsRefused = [...this.testsRefused];
+                }
                 return result;
             }
-            else {
-                done && done();
-                return;
-            }
+        };
+        return Promise.allSettled(this.promises)
+            .then(() => {
+            const errorsObject = buildErrorsObject();
+            done && done(errorsObject);
+            return errorsObject;
+        })
+            .catch((error) => {
+            const errorsObject = buildErrorsObject() || {};
+            errorsObject.exception = error;
+            done && done(errorsObject);
+            return errorsObject;
         });
     }
     /**
@@ -548,7 +552,7 @@ class TestBattery {
      *  `false` if failed
      * @param {*} result the result to test. If the result is a Promise, this'll
      *  test the results of the promise
-     * @param { tring} should the error message to add if there's a failure.
+     * @param {string} should the error message to add if there's a failure.
      * @param {...any} params parameters for the error message
      */
     doTest(core, result, should, params) {
@@ -563,7 +567,7 @@ class TestBattery {
                 });
             }
             else {
-                if (!coreResult) {
+                if ((!coreResult) === this.expectedToPass) {
                     this.errors.push(errorString());
                 }
                 this.testsCompleted++;
@@ -610,17 +614,14 @@ class TestBattery {
      *  be filled in with `format`.
      * @param  {...any} [params] parameters for the error message
      */
-    fail(result, should, ...params) {
-        if (!should && typeof result === 'string') {
-            should = result;
-            result = undefined;
-        }
+    fail(should, ...params) {
         this.doTest(function () {
             return false;
-        }, result, should, params);
+        }, undefined, should, params);
     }
     /**
      * @method isArray
+     * @deprecated
      * Tests if `result` is an array.
      * @param {*} result the result to test. If `result` is a promise, it'll test
      *  the value that the promise resolves with.
@@ -629,12 +630,14 @@ class TestBattery {
      * @param  {...any} [params] parameters for the error message
      */
     isArray(result, should, ...params) {
+        this.#allowDeprecatedMethods();
         this.doTest(function (result) {
             return Array.isArray(result);
         }, result, should, params);
     }
     /**
      * @method isBoolean
+     * @deprecated
      * Tests if `result` is an boolean. Accepts both primitive booleans and
      * Boolean objects.
      * @param {*} result the result to test. If `result` is a promise, it'll test
@@ -644,12 +647,14 @@ class TestBattery {
      * @param  {...any} [params] parameters for the error message
      */
     isBoolean(result, should, ...params) {
+        this.#allowDeprecatedMethods();
         this.doTest(function (result) {
             return (typeof (result) === 'boolean' || types.isBooleanObject(result));
         }, result, should, params);
     }
     /**
      * @method isDirectory
+     * @deprecated
      * Tests if `result` is the path of a directory. Accepts a `string` or an
      * array of `string`s; it it's an array, it'll join the array before testing
      * it. All other types will always fail the test.
@@ -660,6 +665,7 @@ class TestBattery {
      * @param  {...any} [params] parameters for the error message
      */
     isDirectory(result, should, ...params) {
+        this.#allowDeprecatedMethods();
         this.doTest(function (result) {
             if (Array.isArray(result)) {
                 result = path.join.apply(null, result);
@@ -686,12 +692,14 @@ class TestBattery {
      * @param  {...any} [params] parameters for the error message
      */
     isEmptyArray(result, should, ...params) {
+        this.#allowDeprecatedMethods();
         this.doTest(function (result) {
             return Array.isArray(result) && result.length === 0;
         }, result, should, params);
     }
     /**
      * @method isEmptyObject
+     * @deprecated
      * Tests if `result` is an empty object that is not an array.
      * @param {*} result the result to test. If `result` is a promise, it'll test
      *  the value that the promise resolves with.
@@ -700,6 +708,7 @@ class TestBattery {
      * @param  {...any} [params] parameters for the error message
      */
     isEmptyObject(result, should, ...params) {
+        this.#allowDeprecatedMethods();
         this.doTest(function (result) {
             return (typeof result === 'object') && (!Array.isArray(result)) &&
                 ((Object.keys(result)).length === 0);
@@ -707,6 +716,7 @@ class TestBattery {
     }
     /**
      * @method isEmptyString
+     * @deprecated
      * Tests if `result` is an empty string. Accepts both string primitives and
      * String objects.
      * @param {*} result the result to test. If `result` is a promise, it'll test
@@ -716,6 +726,7 @@ class TestBattery {
      * @param  {...any} [params] parameters for the error message
      */
     isEmptyString(result, should, ...params) {
+        this.#allowDeprecatedMethods();
         this.doTest(function (result) {
             return (typeof (result) === 'string' || types.isStringObject(result))
                 && result.length === 0;
@@ -723,6 +734,7 @@ class TestBattery {
     }
     /**
      * @method isEqual
+     * @deprecated
      * Tests if two values are equal. This uses the `==` operator. For strict
      * equality (`===`), use `isStrictlyEqual`.
      * @param {*} a the first value to test. If `result` is a promise, it'll test
@@ -734,12 +746,14 @@ class TestBattery {
      * @param  {...any} [params] parameters for the error message
      */
     isEqual(a, b, should, ...params) {
+        this.#allowDeprecatedMethods();
         this.doTest(function (result) {
             return result[0] == result[1];
         }, Promise.all([a, b]), should, params);
     }
     /**
      * @method isFalse
+     * @deprecated
      * Tests if `result` is equal to false. Accepts both boolean primitives and
      * Boolean objects. Note this must equal `false` or `new Boolean(false)`, not
      * just evaluate to false.
@@ -750,6 +764,7 @@ class TestBattery {
      * @param  {...any} [params] parameters for the error message
      */
     isFalse(result, should, ...params) {
+        this.#allowDeprecatedMethods();
         this.doTest(function (result) {
             return (result === false ||
                 (result && result.valueOf && result.valueOf(result) === false));
@@ -757,6 +772,7 @@ class TestBattery {
     }
     /**
      * @method isFalsey
+     * @deprecated
      * Tests if `result` is falsey, that is, any value that would be `true` if you
      * added a bang to it. (e.g. !null === true)
      * @param {*} result the result to test. If `result` is a promise, it'll test
@@ -766,12 +782,14 @@ class TestBattery {
      * @param  {...any} [params] parameters for the error message
      */
     isFalsey(result, should, ...params) {
+        this.#allowDeprecatedMethods();
         this.doTest(function (result) {
             return (!result);
         }, result, should, params);
     }
     /**
      * @method isFile
+     * @deprecated
      * Tests if `result` is the path of a regular file. Accepts a `string` or an
      * array of `string`s; it it's an array, it'll join the array before testing
      * it. All other types will always fail the test.
@@ -782,6 +800,7 @@ class TestBattery {
      * @param  {...any} [params] parameters for the error message
      */
     isFile(result, should, ...params) {
+        this.#allowDeprecatedMethods();
         this.doTest(function (result) {
             if (Array.isArray(result)) {
                 result = path.join.apply(null, result);
@@ -800,6 +819,7 @@ class TestBattery {
     }
     /**
      * @method isNil
+     * @deprecated
      * Tests if `result` is `null` or `undefined`.
      * @param {*} result the result to test. If `result` is a promise, it'll test
      *  the value that the promise resolves with.
@@ -808,12 +828,14 @@ class TestBattery {
      * @param  {...any} [params] parameters for the error message
      */
     isNil(result, should, ...params) {
+        this.#allowDeprecatedMethods();
         this.doTest(function (result) {
             return (result === null || result === undefined);
         }, result, should, params);
     }
     /**
      * @method isNull
+     * @deprecated
      * Tests if `result` is `null`.
      * @param {*} result the result to test. If `result` is a promise, it'll test
      *  the value that the promise resolves with.
@@ -822,12 +844,14 @@ class TestBattery {
      * @param  {...any} [params] parameters for the error message
      */
     isNull(result, should, ...params) {
+        this.#allowDeprecatedMethods();
         this.doTest(function (result) {
             return result === null;
         }, result, should, params);
     }
     /**
      * @method isStrictlyEqual
+     * @deprecated
      * Tests if two values are equal. This uses the `===` operator. For non-strict
      * equality (`===`), use `isEqual`.
      * @param {*} a the first value to test. If `result` is a promise, it'll test
@@ -839,12 +863,14 @@ class TestBattery {
      * @param  {...any} [params] parameters for the error message
      */
     isStrictlyEqual(a, b, should, ...params) {
+        this.#allowDeprecatedMethods();
         this.doTest(function (result) {
             return result[0] === result[1];
         }, Promise.all([a, b]), should, params);
     }
     /**
      * @method isString
+     * @deprecated
      * Tests if `result` is a string. Accepts both primitive strings and String
      * objects.
      * @param {*} result the result to test. If `result` is a promise, it'll test
@@ -854,12 +880,14 @@ class TestBattery {
      * @param  {...any} [params] parameters for the error message
      */
     isString(result, should, ...params) {
+        this.#allowDeprecatedMethods();
         this.doTest(function (result) {
             return typeof (result) === 'string' || types.isStringObject(result);
         }, result, should, params);
     }
     /**
      * @method isTrue
+     * @deprecated
      * Tests if `result` is equal to true. Accepts both boolean primitives and
      * Boolean objects. Note this must equal `true` or `new Boolean(true)`, not
      * just evaluate to true.
@@ -870,6 +898,7 @@ class TestBattery {
      * @param  {...any} [params] parameters for the error message
      */
     isTrue(result, should, ...params) {
+        this.#allowDeprecatedMethods();
         this.doTest(function (result) {
             return (result === true ||
                 (result && result.valueOf && result.valueOf(result) === true));
@@ -877,6 +906,7 @@ class TestBattery {
     }
     /**
      * @method isTruthy
+     * @deprecated
      * Tests if `result` is truthy, that is, any value that would be `true` if you
      * added a double bang to it. (e.g. !!'hi' === true)
      * @param {*} result the result to test. If `result` is a promise, it'll test
@@ -886,12 +916,14 @@ class TestBattery {
      * @param  {...any} [params] parameters for the error message
      */
     isTruthy(result, should, ...params) {
+        this.#allowDeprecatedMethods();
         this.doTest(function (result) {
             return (!!result);
         }, result, should, params);
     }
     /**
      * @method isUndefined
+     * @deprecated
      * Tests if `result` is an `undefined`.
      * @param {*} result the result to test. If `result` is a promise, it'll test
      *  the value that the promise resolves with.
@@ -900,9 +932,11 @@ class TestBattery {
      * @param  {...any} [params] parameters for the error message
      */
     isUndefined(result, should, ...params) {
+        this.#allowDeprecatedMethods();
         this.doTest(function (result) {
             return result === undefined;
         }, result, should, params);
     }
 }
 export default TestBattery;
+//# sourceMappingURL=test-battery.js.map
