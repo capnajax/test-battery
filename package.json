@@ -1,6 +1,6 @@
 {
   "name": "test-battery",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Test engine for JavaScript",
   "main": "test-battery.js",
   "type": "module",

@@ -130,6 +130,10 @@ class Test {
     they can be called as properties of the test object.
    */
 
+  /**
+   * Succeeds if all the values in the test are arrays, fails if any of the
+   * values provided is not an array.
+   */
   get array():Test {
     this.#verifyOperator(values => {
       return values.every((v:TestValue) => Array.isArray(v.v));
@@ -137,12 +141,254 @@ class Test {
     return this;
   }
 
+  /**
+   * Succeeds if all the values in the test are booleans, fails if any of the
+   * values provided is not a boolean.
+   * 
+   * Since version 3.0.0, this operator only accepts primitive booleans, not
+   * Boolean objects.
+   */
   get boolean():Test {
     this.#verifyOperator(values => {
       return values.every(v => typeof v.v === 'boolean');
     }, 0);
     return this;
   }
+
+  /**
+   * Succeeds if all the values in the test are directories, fails if any of
+   * the values provided is not a directory. Accepts a `string` or an
+   * array of `string`s; if it's an array, it'll join the array before
+   * testing it. All other types will always fail the test.
+   */
+  get directory():Test {
+    this.#verifyOperator(values => {
+      return this.#fileStatTest(
+        values.map(v => v.v),
+        stat => stat.isDirectory()
+      )
+    }, 0);
+    return this;
+  }
+
+  /**
+   * Succeeds if all the values in the test are empty arrays, empty objects,
+   * or empty strings. Fails if any of the values provided is not an
+   * empty array, empty object, or empty string.
+   */
+  get empty():Test {
+    this.#verifyOperator(values => {
+      return values.every(v => {
+        let result = false;
+        if (Array.isArray(v.v)) {
+          result = (v.v.length === 0)
+        } else if (typeof v.v === 'string') {
+          result = (v.v === '');
+        } else if (typeof v.v === 'object' && v.v !== null) {
+          result = (Object.keys(v.v).length === 0)
+        }
+        // everything not an array, object, or string is false, including
+        // `null` and `undefined` stays false
+        return result;
+      });
+    }, 0);
+    return this;
+  }
+
+  /**
+   * Succeeds if all the values in the test are equal to each other, fails if
+   * any two of the values provided are not equal. This uses loose equality,
+   * i.e. the `==` operator. Use `strictlyEqual` for strict equality.
+   * 
+   * If `allowEmptyValueSet` is `false`, this will fail if there are fewer than
+   * two values in the test. If `allowEmptyValueSet` is `true`, this will
+   * succeed as vacuously true if there are no values in the test.
+   */
+  get equal():Test {
+    this.#verifyOperator(values => {
+      if (!values.length) {
+        // allowEmptySet is tested by #verifyOperator
+        return true;
+      }
+      let a = values[0].v;
+      return values.slice(1).every(v => a == v.v);
+    }, 0, 2);
+    return this;
+  }
+
+  /**
+   * Succeeds if all the values in the test are strictly equal `false`. Fails
+   * if any of the values provided is not strictly equal to `false`.
+   */
+  get false():Test {
+    this.#verifyOperator(values => {
+      return values.every(v => v.v === false);
+    }, 1);
+    return this;
+  }
+
+  /**
+   * Succeeds if all the values in the test are falsey, i.e. `false`, `null`,
+   * `undefined`, `0`, `NaN`, or an empty string. Fails if any of the
+   * values provided is not falsey.
+   */
+  get falsey():Test {
+    this.#verifyOperator(values => {
+      return values.every(v => !(v.v));
+    }, 1);
+    return this;
+  }
+
+  /**
+   * Always fails the test. This is useful for testing error conditions.
+   */
+  get fail():Test {
+    this.#verifyOperator(() => {
+      return false;
+    });
+    return this;
+  }
+
+  /**
+   * Succeeds if all the values in the test are regular files, fails if any of
+   * the values provided is not a regular file. Accepts a `string` or an
+   * array of `string`s; if it's an array, it'll join the array before
+   * testing it. All other types will always fail the test.
+   */
+  get file():Test {
+    this.#verifyOperator(values => {
+      return this.#fileStatTest(
+        values.map(v => v.v),
+        stat => stat.isFile()
+      )
+    }, 0);
+    return this;
+  }
+
+  /**
+   * Succeeds if the first value is in any of the lists provided in subsequent
+   * values. The lists can be arrays or strings, and the first value can be a
+   * `string` or a `number`. This uses loose equality, i.e. the `==`
+   * operator. Use `inStrict` for strict equality.
+   */
+  get in():Test {
+    this.#verifyOperator(values => {
+      let result = inList(values[0].v, values.slice(1).map(v=>v.v), false);
+      return result;
+    }, 2);
+    return this;
+  }
+
+  /**
+   * Succeeds if the first value is in any of the lists provided in subsequent
+   * values. The lists can be arrays or strings, and the first value can be a
+   * `string` or a `number`. This uses strict equality, i.e. the `===`
+   * operator. Use `in` for loose equality.
+   */
+  get inStrict():Test {
+    this.#verifyOperator(values => {
+      let result = inList(values[0].v, values.slice(1).map(v=>v.v), true);
+      return result;
+    }, 2);
+    return this;
+  }
+
+  /**
+   * Succeeds if all the values in the test are either `null` or `undefined`,
+   * fails if any of the values provided is not `null` or `undefined`.
+   */
+  get nil():Test {
+    this.#verifyOperator(values => {
+      return values.filter(v => v.v !== null && v.v !== undefined).length === 0;
+    }, 0);
+    return this;
+  }
+
+  /**
+   * Succeeds if all the values in the test are `null`, fails if any of
+   * the values provided is not `null`. This is different from `nil`, which
+   * succeeds if all the values are either `null` or `undefined`.
+   */
+  get null():Test {
+    this.#verifyOperator(values => {
+      return values.filter(v => v.v !== null).length === 0;
+    }, 0);
+    return this;
+  }
+
+  /**
+   * Succeeds if all the values in the test are equal to each other, fails if
+   * any two of the values provided are not equal. This uses strict equality,
+   * i.e. the `===` operator. Use `equal` for loose equality.
+   * 
+   * If `allowEmptyValueSet` is `false`, this will fail if there are fewer than
+   * two values in the test. If `allowEmptyValueSet` is `true`, this will
+   * succeed as vacuously true if there are no values in the test.
+   */
+  get strictlyEqual():Test {
+    this.#verifyOperator(values => {
+      let a = values[0].v;
+      return values.slice(1).every(v => a === v.v);
+    }, 0, 2);
+    return this;
+  }
+
+  /**
+   * Succeeds if all the values in the test are strings, fails if any of
+   * the values provided is not a string. This does not accept
+   * `String` objects, only primitive strings.
+   * 
+   * Since version 3.0.0, this operator only accepts primitive strings, not
+   * `String` objects.
+   */
+  get string():Test {
+    this.#verifyOperator(values => {
+      return values.every(v => typeof v.v === 'string')
+    }, 0);
+    return this;
+  }
+
+  /**
+   * Succeeds if all the values are strictly `true`, fails if any of
+   * the values provided is not strictly `true`.
+   * 
+   * Since version 3.0.0, this operator only accepts primitive booleans, not
+   * Boolean objects.
+   */
+  get true():Test {
+    this.#verifyOperator(values => {
+      return values.every(v => v.v === true);
+    }, 0);
+    return this;
+  }
+
+  /**
+   * Succeeds if all the values in the test are truthy, i.e. not
+   * `false`, `null`, `undefined`, `0`, `NaN`, or an empty string.
+   * Fails if any of the values provided is not truthy. This is different from
+   * `true`, which succeeds if all the values are strictly `true`.
+   */
+  get truthy():Test {
+    this.#verifyOperator(values => {
+      return values.every(v => !!v.v);
+    }, 0);
+    return this;
+  }
+
+  /**
+   * Succeeds if all the values in the test are `undefined`, fails if
+   * any of the values provided is not `undefined`.
+   */
+  get undefined():Test {
+    this.#verifyOperator(values => {
+      return values.filter(v => v.v !== undefined).length === 0;
+    }, 0);
+    return this;
+  }
+
+  /*
+    End of constructed-form operators
+   ** ** */
 
   #fileTest(
     paths:(string|string[])[],
@@ -179,7 +425,8 @@ class Test {
       addToQueue();
     });
   }
-  async fileStatTest(
+
+  async #fileStatTest(
     paths:(string|string[])[],
     test:(stat:fs.Stats)=>boolean|Promise<boolean>
   ):Promise<boolean> {
@@ -202,145 +449,6 @@ class Test {
       }
     );
   }
-
-  get directory():Test {
-    this.#verifyOperator(values => {
-      return this.fileStatTest(
-        values.map(v => v.v),
-        stat => stat.isDirectory()
-      )
-    }, 0);
-    return this;
-  }
-
-  get empty():Test {
-    this.#verifyOperator(values => {
-      return values.every(v => {
-        let result = false;
-        if (Array.isArray(v.v)) {
-          result = (v.v.length === 0)
-        } else if (typeof v.v === 'string') {
-          result = (v.v === '');
-        } else if (typeof v.v === 'object' && v.v !== null) {
-          result = (Object.keys(v.v).length === 0)
-        }
-        // everything not an array, object, or string is false, including
-        // `null` and `undefined` stays false
-        return result;
-      });
-    }, 0);
-    return this;
-  }
-
-  get equal():Test {
-    this.#verifyOperator(values => {
-      let a = values[0].v;
-      return values.slice(1).every(v => a == v.v);
-    }, 0, 2);
-    return this;
-  }
-
-  get false():Test {
-    this.#verifyOperator(values => {
-      return values.every(v => v.v === false);
-    }, 1);
-    return this;
-  }
-
-  get falsey():Test {
-    this.#verifyOperator(values => {
-      return values.every(v => !(v.v));
-    }, 1);
-    return this;
-  }
-
-  get fail():Test {
-    this.#verifyOperator(() => {
-      return false;
-    });
-    return this;
-  }
-
-  get file():Test {
-    this.#verifyOperator(values => {
-      return this.fileStatTest(
-        values.map(v => v.v),
-        stat => stat.isFile()
-      )
-    }, 0);
-    return this;
-  }
-
-  get in():Test {
-    this.#verifyOperator(values => {
-      let result = inList(values[0].v, values.slice(1).map(v=>v.v), false);
-      return result;
-    }, 2);
-    return this;
-  }
-
-  get inStrict():Test {
-    this.#verifyOperator(values => {
-      let result = inList(values[0].v, values.slice(1).map(v=>v.v), true);
-      return result;
-    }, 2);
-    return this;
-
-  }
-
-  get nil():Test {
-    this.#verifyOperator(values => {
-      return values.filter(v => v.v !== null && v.v !== undefined).length === 0;
-    }, 0);
-    return this;
-  }
-
-  get null():Test {
-    this.#verifyOperator(values => {
-      return values.filter(v => v.v !== null).length === 0;
-    }, 0);
-    return this;
-  }
-
-  get strictlyEqual():Test {
-    this.#verifyOperator(values => {
-      let a = values[0].v;
-      return values.slice(1).every(v => a === v.v);
-    }, 0, 2);
-    return this;
-  }
-
-  get string():Test {
-    this.#verifyOperator(values => {
-      return values.every(v => typeof v.v === 'string')
-    }, 0);
-    return this;
-  }
-
-  get true():Test {
-    this.#verifyOperator(values => {
-      return values.every(v => v.v === true);
-    }, 0);
-    return this;
-  }
-
-  get truthy():Test {
-    this.#verifyOperator(values => {
-      return values.every(v => !!v.v);
-    }, 0);
-    return this;
-  }
-
-  get undefined():Test {
-    this.#verifyOperator(values => {
-      return values.filter(v => v.v !== undefined).length === 0;
-    }, 0);
-    return this;
-  }
-
-  /*
-    End of constructed-form operators
-   ** ** */
 
   /**
    * Verifies the operator and the number of values it has. If the number of
