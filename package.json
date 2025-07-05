@@ -1,12 +1,13 @@
 {
   "name": "test-battery",
-  "version": "3.0.1",
-  "description": "Test engine for JavaScript",
-  "main": "test-battery.js",
+  "version": "3.1.0",
+  "description": "Assertion engine for JavaScript that plays nicely with parallel promises",
+  "main": "dist/src/test-battery.js",
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "test": "npm run build && node --test --experimental-test-coverage dist/test/*.test.js"
+    "test": "npm run build && node --test --experimental-test-coverage dist/test/*.test.js",
+    "test-examples": "npm run build && ! (node --test dist/examples/test-runner/*.js) && node_modules/mocha/bin/mocha.js dist/examples/mocha ; echo 'REMEMBER THE TEST RUNNER TEST SHOULD FAIL WITH ONE ERROR EACH AND ONE REFUSED TEST'"
   },
   "repository": {
     "type": "git",
@@ -25,11 +26,12 @@
   },
   "homepage": "https://github.com/capnajax/test-battery#readme",
   "devDependencies": {
+    "@types/mocha": "^10.0.10",
     "@types/node": "^20.12.7",
     "@typescript-eslint/eslint-plugin": "^7.7.0",
     "@typescript-eslint/parser": "^7.7.0",
     "eslint": "^8.57.0",
-    "mocha": "^11.0.1",
+    "mocha": "^11.7.1",
     "source-map-support": "^0.5.21",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5"

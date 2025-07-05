@@ -13,6 +13,12 @@ import {
 // tests. If this is not empty, the 'All tests run' test will fail.
 const focusTests:string[] = [];
 
+/**
+ * A wrapper function for `it` that allows for skipping tests that are not
+ * listed in `focusTests`. If `focusTests` is empty, all tests will run.
+ * @param description A description of the test to run.
+ * @param test the test function
+ */
 function focus(
   description:string,
   test:(done:TestDoneCallback)=>void,
@@ -20,7 +26,7 @@ function focus(
   let runTest = !focusTests || focusTests.length === 0;
   if (focusTests) {
     if (focusTests.includes(description)) {
-      runTest = true
+      runTest = true;
     }
   }
   runTest
@@ -44,6 +50,27 @@ function getResults(
   test:TestBattery,
   done?:TestDoneCallback
 ):Promise<void|TestErrors>;
+
+/**
+ * Gets the results of the tests in the given TestBattery instances and combines
+ * them into a single TestErrors object.
+ * 
+ * Note this function is not inteded to illustrate the use of the TestBattery,
+ * but it can provide insight into how to use the results from the TestBattery.
+ * @param test A `TestBattery` instance containing the tests to run that are all
+ *  expected to pass.
+ * @param fails A `TestBattery` instance containing the tests for negative
+ *  testing. If `expectedFails` is not given, it assumed that these tests are
+ *  run with `expectedToPass` set to `false`, so that all tests that _pass_ are
+ *  considered as failures. If `expectedFails` is given, it is assumed that
+ *  `expectedToPass` is `true`, and that there sould be exactly `expectedFails`
+ *  tests in the battery that fail.
+ * @param expectedFails Set to a `number` to indicate the number of tests in
+ *  `fails` that are actually expected to fail. If not given, it is assumed that
+ *  `expectedToPass` is `false`, and that all tests in `fails` are expected to
+ *  fail.
+ * @param done a callback function that is called when the tests are done.
+ */
 async function getResults(
   test:TestBattery,
   fails?:TestBattery|TestDoneCallback,
@@ -56,7 +83,7 @@ async function getResults(
   // redistribute arguments based on types
   if (done === undefined) {
     if (typeof expectedFails === 'function') {
-      adjustments = 'expectedFailes to done';
+      adjustments = 'expectedFails to done';
       done = expectedFails as TestDoneCallback;
       expectedFails = undefined;
     } else if (expectedFails === undefined) {
@@ -100,12 +127,24 @@ async function getResults(
     }
   }
 
+  const getResults:((test:TestBattery)=>Promise<TestErrors|undefined>) =
+    async (test:TestBattery) => {
+      try {
+        await test.done();
+      } catch (e:any) {
+        console.log('getResults caught exception', e);
+        return e;
+      }
+      return undefined;
+    };
+
   if (test) {
-    const results = await test.done();
+    const results = await getResults(test);
     addResults(results);
   }
+
   if (fails) {
-    const results = await (fails as TestBattery).done();
+    const results = await getResults(fails);
     if (expectedFails === undefined) {
       addResults(results);
     } else {
@@ -120,12 +159,24 @@ async function getResults(
         })
       }
     }
-  }  
+  }
 
   if (done) {
     allResults ? done(allResults) : done();
   }
 }
+
+describe('TestBattery basic usage', () => {
+  TestBattery.test('should run a simple test', (battery) => {
+    battery.test('simple test').value(true).is.true;
+    battery.test('another simple test').value(1 + 1).value(2).equal;
+    battery.test('string test')
+      .value('hello world 1')
+      .value('hello world 2')
+      .value('hello world 3')
+      .is.string;
+  });
+});
 
 describe('Simple Form (deprecated)', function() {
 
@@ -426,6 +477,9 @@ describe('Constructed form', function() {
     let test = new TestBattery('boolean', posOptions);
     test.test('true').value(true).is.boolean;
     test.test('false').value(false).is.boolean;
+    test.test('resolves to booleans')
+      .value(Promise.resolve(true))
+      .value(Promise.resolve(false)).are.boolean;
 
     let fails = new TestBattery('boolean fails', negOptions);
     fails.test('null').value(null).is.boolean;
@@ -690,7 +744,7 @@ describe('Promise handling', function() {
     }
     let fails = new TestBattery('batteries without promises fails');
     for (let i = 0; i < 10; i++) {
-      fails.isTrue((i !== 6), 'true %s', i);
+      fails.isTrue((i !== 6), 'true fail %s', i);
     }
     getResults(test, fails, 1, done);
   });
