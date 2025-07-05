@@ -1,7 +1,19 @@
+/**
+ * Options for the Node.js test runner because this isn't exported
+ * by the @types/node
+ */
+interface NodeTestOptions {
+    concurrency?: number | boolean | undefined;
+    only?: boolean | undefined;
+    signal?: AbortSignal | undefined;
+    skip?: boolean | string | undefined;
+    timeout?: number | undefined;
+    todo?: boolean | string | undefined;
+}
 export interface TestErrors {
     testsRefused?: Array<string>;
     errors?: Array<string>;
-    exception?: any;
+    exception?: Error;
 }
 export declare function isTestErrors(value: any): value is TestErrors;
 export interface TestValue {
@@ -181,11 +193,14 @@ export interface TestBatteryOptions {
 }
 export declare class TestBattery {
     #private;
+    static test(name: string, options?: (TestBatteryOptions & NodeTestOptions) | ((battery: TestBattery) => void), testFn?: (battery: TestBattery) => void): Promise<void>;
     constructor(name: string, options?: TestBatteryOptions);
     get name(): string;
     private set name(value);
     get errors(): Array<string>;
     private set errors(value);
+    get exception(): Error | undefined;
+    set exception(exception: Error | undefined);
     private get promises();
     private set promises(value);
     get testsCompleted(): number;
@@ -284,6 +299,7 @@ export declare class TestBattery {
     isDirectory(result: any, should: string, ...params: any[]): void;
     /**
      * @method isEmptyArray
+     * @deprecated
      * Tests if `result` is an empty array.
      * @param {*} result the result to test. If `result` is a promise, it'll test
      *  the value that the promise resolves with.

@@ -1,16 +1,17 @@
 {
   "compilerOptions": {
     "target": "esnext",
-    "module": "esnext",
+    "module": "NodeNext",
     "declaration": true,
     "sourceMap": true,
     "outDir": "./dist",
     "rootDir": ".",
     "esModuleInterop": true,
+    "moduleResolution": "nodenext",
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "skipLibCheck": true
   },
-  "include": ["src", "test"],
+  "include": ["src", "test", "examples"],
   "exclude": ["dist", "node_modules"]
 }

@@ -3,6 +3,8 @@ import { format } from 'util';
 import fs from 'fs';
 import path from 'path';
 import { types } from 'util';
+import { test as nodeTestTest } from 'node:test';
+const nodeTestOptionsMembers = ['concurrency', 'only', 'signal', 'skip', 'timeout', 'todo'];
 ;
 export function isTestErrors(value) {
     if (value.testsRefused !== undefined) {
@@ -516,7 +518,7 @@ class Test {
     value(v) {
         this.#testIfComplete();
         if (types.isPromise(v)) {
-            this.values.push(v.then(v => { v; }));
+            this.values.push(v.then(v => ({ v })));
         }
         else {
             this.values.push({ v });
@@ -528,12 +530,47 @@ class Test {
     }
 }
 export class TestBattery {
+    static test(name, options, testFn) {
+        return nodeTestTest(name, {}, async (context) => {
+            if (!testFn) {
+                if (typeof options === 'function') {
+                    testFn = options;
+                    options = undefined;
+                }
+                else {
+                    throw new Error('TestBattery.it requires a test function');
+                }
+            }
+            if (undefined === options) {
+                options = {};
+            }
+            const battery = new TestBattery(name, options);
+            try {
+                await testFn(battery);
+            }
+            catch (e) {
+                battery.exception = e;
+            }
+            const result = await battery.done();
+            if (result) {
+                let report = `Test ${battery.name} failed:\n`;
+                if (result.errors && result.errors.length) {
+                    report += `  Errors:\n    ${result.errors.join(',\n    ')}\n`;
+                }
+                if (result.testsRefused && result.testsRefused.length) {
+                    report += `  Tests refused: ${result.testsRefused.join(',\n    ')}\n`;
+                }
+                throw new Error(report);
+            }
+        });
+    }
     #name;
-    #errors;
-    #promises;
-    #testsCompleted;
-    #refuseTests;
-    #testsRefused;
+    #errors = [];
+    #exception;
+    #promises = [];
+    #testsCompleted = 0;
+    #refuseTests = false;
+    #testsRefused = [];
     #expectedToPass;
     #allowDeprecated;
     #allowEmptyValueSet;
@@ -542,11 +579,6 @@ export class TestBattery {
             return v === false ? false : true;
         };
         this.#name = name;
-        this.#errors = [];
-        this.#promises = [];
-        this.#testsCompleted = 0;
-        this.#refuseTests = false;
-        this.#testsRefused = [];
         this.#expectedToPass = (options?.expectedToPass === false) ? false : true;
         this.#allowDeprecated = (options?.allowDeprecated === false) ? false : true;
         this.#expectedToPass = falseIf(options?.expectedToPass);
@@ -557,6 +589,12 @@ export class TestBattery {
     set name(name) { this.#name = name; }
     get errors() { return this.#errors; }
     set errors(errors) { this.#errors = errors; }
+    get exception() {
+        return this.#exception;
+    }
+    set exception(exception) {
+        this.#exception = exception;
+    }
     get promises() { return this.#promises; }
     set promises(promises) {
         this.#promises = promises;
@@ -636,20 +674,38 @@ export class TestBattery {
                 if (this.refuseTests) {
                     result.testsRefused = [...this.testsRefused];
                 }
+                if (this.exception) {
+                    result.exception = this.exception;
+                }
                 return result;
             }
         };
+        let errorsObject = undefined;
         return Promise.allSettled(this.promises)
-            .then(() => {
-            const errorsObject = buildErrorsObject();
-            done && done(errorsObject);
-            return errorsObject;
-        })
             .catch((error) => {
             const errorsObject = buildErrorsObject() || {};
             errorsObject.exception = error;
-            done && done(errorsObject);
-            return errorsObject;
+            if (done) {
+                done(errorsObject);
+            }
+            else {
+                if (errorsObject) {
+                    throw errorsObject;
+                }
+            }
+            return undefined;
+        })
+            .then(() => {
+            errorsObject = buildErrorsObject();
+            if (done) {
+                done(errorsObject);
+            }
+            else {
+                if (errorsObject) {
+                    throw errorsObject;
+                }
+            }
+            return undefined;
         });
     }
     /**
@@ -792,6 +848,7 @@ export class TestBattery {
     }
     /**
      * @method isEmptyArray
+     * @deprecated
      * Tests if `result` is an empty array.
      * @param {*} result the result to test. If `result` is a promise, it'll test
      *  the value that the promise resolves with.

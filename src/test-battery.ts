@@ -4,12 +4,28 @@ import { format } from 'util';
 import fs from 'fs';
 import path, { resolve } from 'path';
 import { types } from 'util';
+import { test as nodeTestTest } from 'node:test';
+
+/**
+ * Options for the Node.js test runner because this isn't exported
+ * by the @types/node
+ */
+interface NodeTestOptions {
+  concurrency?: number | boolean | undefined;
+  only?: boolean | undefined;
+  signal?: AbortSignal | undefined;
+  skip?: boolean | string | undefined;
+  timeout?: number | undefined;
+  todo?: boolean | string | undefined;
+}
+const nodeTestOptionsMembers:string[] =
+  ['concurrency', 'only', 'signal', 'skip', 'timeout', 'todo'];
 
 export interface TestErrors {
   testsRefused?: Array<string>;
   errors?: Array<string>;
   // only if there is a promise rejection
-  exception?: any;
+  exception?: Error;
 };
 export function isTestErrors(value:any): value is TestErrors {
   if (value.testsRefused !== undefined) {
@@ -534,6 +550,7 @@ class Test {
 
     this.isComplete = true;
     const resolvedValues = await Promise.all(this.values);
+
     let result:boolean;
 
     if (this.operator === undefined) {
@@ -601,7 +618,7 @@ class Test {
   value(v:any) {
     this.#testIfComplete();
     if (types.isPromise(v)) {
-      this.values.push(v.then(v=>{v}));
+      this.values.push(v.then(v=>({v})));
     } else {
       this.values.push({v});
     }
@@ -640,12 +657,50 @@ export interface TestBatteryOptions {
 
 export class TestBattery {
 
+  static test(
+    name:string,
+    options?:(TestBatteryOptions&NodeTestOptions)|((battery:TestBattery)=>void),
+    testFn?:(battery:TestBattery)=>void
+  ):Promise<void> {
+    return nodeTestTest(name, {}, async (context) => {
+      if (!testFn) {
+        if (typeof options === 'function') {
+          testFn = options;
+          options = undefined;
+        } else {
+          throw new Error('TestBattery.it requires a test function');
+        }
+      }
+      if (undefined === options) {
+        options = {};
+      }
+      const battery = new TestBattery(name, options as TestBatteryOptions);
+      try {
+        await (testFn as (battery:TestBattery)=>void)(battery);
+      } catch(e:any) {
+        battery.exception = e;
+      }
+      const result = await battery.done();
+      if (result) {
+        let report:string = `Test ${battery.name} failed:\n`;
+        if (result.errors && result.errors.length) {
+          report += `  Errors:\n    ${result.errors.join(',\n    ')}\n`;
+        }
+        if (result.testsRefused && result.testsRefused.length) {
+          report += `  Tests refused: ${result.testsRefused.join(',\n    ')}\n`;
+        }
+        throw new Error(report);
+      }
+    });
+  }
+
   #name:string;
-  #errors:Array<string>;
-  #promises:Array<Promise<any>>;
-  #testsCompleted:number;
-  #refuseTests:boolean;
-  #testsRefused:Array<string>;
+  #errors:Array<string> = [];
+  #exception:Error|undefined;
+  #promises:Array<Promise<any>> = [];
+  #testsCompleted:number = 0;
+  #refuseTests:boolean = false;
+  #testsRefused:Array<string> = [];
   #expectedToPass:boolean;
   #allowDeprecated:boolean;
   #allowEmptyValueSet:boolean;
@@ -655,11 +710,6 @@ export class TestBattery {
       return v === false ? false : true;
     }
     this.#name = name
-    this.#errors = [];
-    this.#promises = [];
-    this.#testsCompleted = 0;
-    this.#refuseTests = false;
-    this.#testsRefused = [];
     this.#expectedToPass = (options?.expectedToPass === false) ? false : true;
     this.#allowDeprecated = (options?.allowDeprecated === false) ? false : true;
     this.#expectedToPass = falseIf(options?.expectedToPass);
@@ -672,6 +722,13 @@ export class TestBattery {
 
   get errors(): Array<string> { return this.#errors; }
   private set errors(errors: Array<string>) { this.#errors = errors; }
+
+  get exception(): Error|undefined {
+    return this.#exception;
+  }
+  set exception(exception:Error|undefined) {
+    this.#exception = exception;
+  }
 
   private get promises(): Array<Promise<any>> { return this.#promises; }
   private set promises(promises: Array<Promise<any>>) {
@@ -769,21 +826,37 @@ export class TestBattery {
         if (this.refuseTests) {
           result.testsRefused = [...this.testsRefused];
         }
+        if (this.exception) {
+          result.exception = this.exception;
+        }
         return result;
       }
     }
+    let errorsObject:TestErrors|undefined = undefined;
     return Promise.allSettled(this.promises)
-      .then(() => {
-        const errorsObject = buildErrorsObject();
-        done && done(errorsObject);
-        return errorsObject;
-      })
       .catch((error:any) => {
         const errorsObject = buildErrorsObject() || {};
         errorsObject.exception = error;
-        done && done(errorsObject);
-        return errorsObject;
-      });
+        if (done) {
+          done(errorsObject);
+        } else {
+          if (errorsObject) {
+            throw errorsObject;
+          }
+        }
+        return undefined;
+      })
+      .then(() => {
+        errorsObject = buildErrorsObject();
+        if (done) {
+          done(errorsObject);
+        } else {
+          if (errorsObject) {
+            throw errorsObject;
+          }
+        }
+        return undefined;
+      })
   }
 
   /**
@@ -932,6 +1005,7 @@ export class TestBattery {
 
   /**
    * @method isEmptyArray
+   * @deprecated
    * Tests if `result` is an empty array.
    * @param {*} result the result to test. If `result` is a promise, it'll test
    *  the value that the promise resolves with.

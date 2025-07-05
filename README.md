@@ -1,7 +1,8 @@
 # test-battery
 
 Test engine for JavaScript that plays nicely with promises, intended for use
-with mochajs but plays nicely with any test framework.
+with mochajs and the NodeJS test runner but should play nicely with any test
+framework.
 
 ## Why the test battery
 
@@ -28,90 +29,50 @@ npm install --save-dev test-battery
 import TestBattery from `test-battery`;
 ```
 
-## Example battery
+## Example batteries
 
-In [constructed form](#constructed-form) (preferred)
+Examples are provided for both [Mocha](https://mochajs.org/) and the
+[Node JS native test runner](https://nodejs.org/api/test.html) in the
+[examples](examples) folder.
 
-```javascript
-  async function runTestBattery() {
-    let battery = new TestBattery();
-    
-    battery.test('array should be empty').value([]).is.array;
-    battery.test('integer array should be an array').value([1,2,3]).is.array;
+### NodeJS Test Runner (preferred)
 
-    // will quietly refuse further tests if any of the previous tests resulted
-    // in errors. MUST be awaited.
-    await battery.endIfErrors();
+Use the static `TestBattery.test` method to set up the test (which calls the
+NodeJS test runner's `it` in the background) and reads the results of the tests.
 
-    // if a test value is a promise, it'll test the value the promise resolves
-    // with.
-    battery.test('Promise should resolve to a boolean')
-        .value(Promise.resolve(false))
-        .is.boolean;
-
-    // error strings can be parameterized.
-    battery.test('null test number %s', 1).is.empty;
-
-    battery.done(result => {
-      // result is undefined if success, or an object that contains errors
-      // and refusedTests if failed
-      console.log(result);
-    });
-  }
-```
-
-Or in [simple form](#simple-form) (_deprecated_)
-
-```javascript
-  async function runTestBattery() {
-    let test = new TestBattery();
-    
-    test.isArray([], 'empty array');
-    test.isArray([1,2,3], 'integer array');
-
-    // will quietly refuse further tests if any of the previous tests resulted
-    // in errors. MUST be awaited.
-    await test.endIfErrors();
-
-    // if a test value is a promise, it'll test the value the promise resolves
-    // with.
-    test.isBoolean(Promise.resolve(false), 'boolean false');
-
-    // error strings can be parameterized.
-    test.isEmptyString('', 'null test number %s', 1);
-
-    test.done(result => {
-      // result is undefined if success, or an object that contains errors
-      // and refusedTests if failed
-      console.log(result);
-    });
-  }
-```
-
-Using with NodeJS `mocha`:
-
-```javascript
-describe('File tests', function() {
-
-  it('Files exist', function(done) {
-
-    let battery = new TestBattery();
-
-    // test each of the files
-    battery.test('files exist as regular files')
-      .value('foo/bar.yaml')
-      .value('foo/bar.js')
-      .value('foo/bar.csv')
-      .value('foo/bar.txt')
-      .is.a.file;
-
-
-    // note we pass the `it` method's `done` to `tests.done` to report all
-    // errors in this test.
-    test.done(done);
+```TypeScript
+suite('TestBattery basic usage', () => {
+  TestBattery.test('should run a simple test', (battery) => {
+    battery.test('simple test').value(true).is.true;
+    battery.test('another simple test').value(1 + 1).value(2).equal;
+    battery.test('string test')
+      .value('hello world 1')
+      .value('hello world 2')
+      .value('hello world 3')
+      .is.string;
   });
 });
+```
 
+### Mocha
+
+Create the test using the constructor and call the `done` callback of the `it`
+with the `battery.done` method.
+
+```TypeScript
+describe('TestBattery basic usage', () => {
+  it ('should run a simple test', (done) => {
+    const battery = new TestBattery('simple test battery');
+    battery.test('simple test').value(true).is.true;
+    battery.test('another simple test').value(1 + 1).value(2).equal;
+    battery.test('string test')
+      .value('hello world 1')
+      .value('hello world 2')
+      .value('hello world 3')
+      .is.string;
+    battery.done(done);
+  })
+});
 ```
 
 ## Constructed Form
@@ -240,3 +201,4 @@ battery.isEqual(1, 1, 'should be equal');
     ```
 
 - Simple form and Constructed form are no longer maintained at parity. New tests will only be implemented in constructed form.
+- (3.1+) Explicit support for the NodeJS test runner
