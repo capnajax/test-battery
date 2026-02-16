@@ -50,11 +50,23 @@ declare class Test {
      */
     get boolean(): Test;
     /**
-     * Succeeds if all the values in the test are directories, fails if any of
-     * the values provided is not a directory. Accepts a `string` or an
-     * array of `string`s; if it's an array, it'll join the array before
-     * testing it. All other types will always fail the test.
+     * Succeeds if all the objects in the test are equal to each other, fails if
+     * any two of the values provided are not equal. This uses loose equality,
+     * i.e. the `==` operator. Use `strictlyEqual` for strict equality. If the
+     * values are not objects or arrays, this will test for strict equality using
+     * the same logic as the `strictlyEqual`
+     *
+     * If `allowEmptyValueSet` is `false`, this will fail if there are fewer than
+     * two values in the test. If `allowEmptyValueSet` is `true`, this will
+     * succeed as vacuously true if there are no values in the test.
      */
+    get deepEqual(): Test;
+    /**
+   * Succeeds if all the values in the test are directories, fails if any of
+   * the values provided is not a directory. Accepts a `string` or an
+   * array of `string`s; if it's an array, it'll join the array before
+   * testing it. All other types will always fail the test.
+   */
     get directory(): Test;
     /**
      * Succeeds if all the values in the test are empty arrays, empty objects,

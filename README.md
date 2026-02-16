@@ -143,6 +143,8 @@ The following test assertions are available in `test-battery`:
 
 - `.array` - all values are arrays
 - `.boolean` - all values are `boolean`
+- `.deepEqual` - all values are _strictly_ equal (i.e. equal by `===`), and
+  object and array members are also deeply equal.
 - `.directory` - all values are paths of directories
 - `.empty` - all values are empty objects, array, or string. Everything not an array, string, or object is `false`, including `null` and `undefined`.
 - `.equal` - all values are equal by _loose_ equality, that is, type coercion is permitted. Use `strictlyEqual` to test for _strict_ equality.
@@ -202,3 +204,4 @@ battery.isEqual(1, 1, 'should be equal');
 
 - Simple form and Constructed form are no longer maintained at parity. New tests will only be implemented in constructed form.
 - (3.1+) Explicit support for the NodeJS test runner
+- (3.2+) Added `deepEqual` test

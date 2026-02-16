@@ -120,11 +120,63 @@ class Test {
         return this;
     }
     /**
-     * Succeeds if all the values in the test are directories, fails if any of
-     * the values provided is not a directory. Accepts a `string` or an
-     * array of `string`s; if it's an array, it'll join the array before
-     * testing it. All other types will always fail the test.
+     * Succeeds if all the objects in the test are equal to each other, fails if
+     * any two of the values provided are not equal. This uses loose equality,
+     * i.e. the `==` operator. Use `strictlyEqual` for strict equality. If the
+     * values are not objects or arrays, this will test for strict equality using
+     * the same logic as the `strictlyEqual`
+     *
+     * If `allowEmptyValueSet` is `false`, this will fail if there are fewer than
+     * two values in the test. If `allowEmptyValueSet` is `true`, this will
+     * succeed as vacuously true if there are no values in the test.
      */
+    get deepEqual() {
+        this.#verifyOperator(values => {
+            function deepEqual(a, b) {
+                if (a === null) {
+                    return b === null;
+                }
+                if (typeof a !== typeof b) {
+                    return false;
+                }
+                if (typeof a === 'object') {
+                    if (Array.isArray(a)) {
+                        if (!Array.isArray(b)) {
+                            return false;
+                        }
+                        if (a.length !== b.length) {
+                            return false;
+                        }
+                        return a.every((item, index) => deepEqual(item, b[index]));
+                    }
+                    else {
+                        if (Array.isArray(b)) {
+                            return false;
+                        }
+                        const aKeys = Object.keys(a);
+                        const bKeys = Object.keys(b);
+                        if (aKeys.length !== bKeys.length) {
+                            return false;
+                        }
+                        return aKeys.every(key => {
+                            return b.hasOwnProperty(key) && deepEqual(a[key], b[key]);
+                        });
+                    }
+                }
+                else {
+                    return a === b;
+                }
+            }
+            return values.slice(1).every(v => deepEqual(values[0].v, v.v));
+        }, 0, 2);
+        return this;
+    }
+    /**
+   * Succeeds if all the values in the test are directories, fails if any of
+   * the values provided is not a directory. Accepts a `string` or an
+   * array of `string`s; if it's an array, it'll join the array before
+   * testing it. All other types will always fail the test.
+   */
     get directory() {
         this.#verifyOperator(values => {
             return this.#fileStatTest(values.map(v => v.v), stat => stat.isDirectory());

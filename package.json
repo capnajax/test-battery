@@ -1,6 +1,6 @@
 {
   "name": "test-battery",
-  "version": "3.1.0",
+  "version": "3.2.1",
   "description": "Assertion engine for JavaScript that plays nicely with parallel promises",
   "main": "dist/src/test-battery.js",
   "type": "module",

@@ -496,6 +496,49 @@ describe('Constructed form', function() {
 
     getResults(test, fails, done);'string'
   });
+  
+  focus('constructed deep equal', function (done) {
+    let test = new TestBattery('deep equal', posOptions);
+    test.test('equal integers').value(1).value(1).is.deepEqual;
+    test.test('equal strings').value('1').value('1').is.deepEqual;
+    test.test('equal booleans').value(true).value(true).is.deepEqual;
+    test.test('equal objects').value({}).value({}).is.deepEqual;
+    test.test('equal arrays').value([1,2,3]).value([1,2,3]).is.deepEqual;
+    test.test('equal nested objects')
+      .value({a: {b: 1}})
+      .value({a: {b: 1}}).is.deepEqual;
+    test.test('equal nested objects with arrays')
+      .value({a: {b: [1,2,3]}})
+      .value({a: {b: [1,2,3]}}).is.deepEqual;
+
+    let fails = new TestBattery('deep equal fails', negOptions);
+    fails.test('unequal integers').value(1).value(2).is.deepEqual;
+    fails.test('equal (not strictly) ones').value(1).value('1').is.deepEqual;
+    fails.test('unequal ones').value(1).value('2').is.deepEqual;
+    fails.test('unequal strings').value('1').value('2').is.deepEqual;
+    fails.test('unequal booleans').value(true).value(false).is.deepEqual;
+    fails.test('unequal truths').value(true).value('2').is.deepEqual;
+    fails.test('equal (not strictly) truths').value(true).value(1).is.deepEqual;
+    fails.test('unequal objects').value({}).value({a: 1}).is.deepEqual;
+    fails.test('unequal arrays').value([1,2,3]).value([1,2,4]).is.deepEqual;
+    fails.test('unequal sized arrays')
+      .value([1,2,3])
+      .value([1,2,3,4]).is.deepEqual;
+    fails.test('unequal nested objects')
+      .value({a: {b: 1}})
+      .value({a: {b: 2}}).is.deepEqual;
+    fails.test('unequal nested objects with arrays')
+      .value({a: {b: [1,2,3]}})
+      .value({a: {b: [1,2,4]}}).is.deepEqual;
+    fails.test('extra values in first object')
+      .value({a: {b: [1,2,3], c: 4}})
+      .value({a: {b: [1,2,4]}}).is.deepEqual;
+    fails.test('extra values in second object')
+      .value({a: {b: [1,2,3]}})
+      .value({a: {b: [1,2,3], c: 4}}).is.deepEqual;
+    
+    getResults(test, fails, done);
+  });
 
   focus('constructed directory', function (done) {
     let test = new TestBattery('directory', posOptions);
