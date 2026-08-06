@@ -203,9 +203,10 @@ export interface TestBatteryOptions {
      */
     expectedToPass?: boolean;
 }
+type TestBatteryFn = (battery: TestBattery) => void | Promise<void>;
 export declare class TestBattery {
     #private;
-    static test(name: string, options?: (TestBatteryOptions & NodeTestOptions) | ((battery: TestBattery) => void), testFn?: (battery: TestBattery) => void): Promise<void>;
+    static test(name: string, options?: (TestBatteryOptions & NodeTestOptions) | TestBatteryFn, testFn?: TestBatteryFn): Promise<void>;
     constructor(name: string, options?: TestBatteryOptions);
     get name(): string;
     private set name(value);

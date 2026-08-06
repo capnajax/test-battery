@@ -707,12 +707,15 @@ export interface TestBatteryOptions {
   expectedToPass?:boolean;
 }
 
+type TestBatteryFn =
+  (battery: TestBattery) => void | Promise<void>;
+  
 export class TestBattery {
 
   static test(
     name:string,
-    options?:(TestBatteryOptions&NodeTestOptions)|((battery:TestBattery)=>void),
-    testFn?:(battery:TestBattery)=>void
+    options?:(TestBatteryOptions&NodeTestOptions)|TestBatteryFn,
+    testFn?:TestBatteryFn
   ):Promise<void> {
     return nodeTestTest(name, {}, async (context) => {
       if (!testFn) {
@@ -728,7 +731,7 @@ export class TestBattery {
       }
       const battery = new TestBattery(name, options as TestBatteryOptions);
       try {
-        await (testFn as (battery:TestBattery)=>void)(battery);
+        await testFn(battery);
       } catch(e:any) {
         battery.exception = e;
       }
